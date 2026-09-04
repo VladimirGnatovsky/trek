@@ -14,5 +14,7 @@ FROM caddy:2-alpine
 WORKDIR /srv
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 8080
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]

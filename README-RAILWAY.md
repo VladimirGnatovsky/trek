@@ -27,6 +27,6 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
+Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. The Docker startup script exposes only these two public values at runtime, so a Railway rebuild cache cannot leave the sign-in screen without configuration. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
 
 For production user accounts, payment processing, or cloud-synced financial records, add a server-side backend and store the relevant credentials only in Railway service variables.
