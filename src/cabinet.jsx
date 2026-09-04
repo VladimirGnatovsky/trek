@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Home,
   LayoutDashboard,
+  LogOut,
   Menu,
   MoreHorizontal,
   Music2,
@@ -872,7 +873,7 @@ function AddModal({ onClose, onSave }) {
   );
 }
 
-export default function Cabinet({ onExit }) {
+export default function Cabinet({ onExit, onSignOut }) {
   const [view, setView] = useState("overview"),
     [transactions, setTransactions] = useState(seed),
     [modal, setModal] = useState(null),
@@ -944,6 +945,10 @@ export default function Cabinet({ onExit }) {
             <Settings size={17} /> Settings
           </button>
           <button onClick={onExit}>← Back to home</button>
+          <button onClick={onSignOut}>
+            <LogOut size={17} />
+            Sign out
+          </button>
         </div>
       </aside>
       <main className="tc-main">
