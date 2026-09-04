@@ -12,11 +12,14 @@ alter table public.profiles add column if not exists avatar_path text;
 
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  currency text not null default 'UAH' check (currency in ('UAH', 'PLN', 'EUR', 'USD')),
+  currency text not null default 'EUR' check (currency in ('UAH', 'PLN', 'EUR', 'USD')),
   monthly_budget numeric not null default 30000 check (monthly_budget >= 0),
   goal_saved numeric not null default 0 check (goal_saved >= 0),
   updated_at timestamptz not null default now()
 );
+
+-- Existing accounts keep their chosen currency; EUR applies only to new settings rows.
+alter table public.user_settings alter column currency set default 'EUR';
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),

@@ -84,7 +84,7 @@ const categories = [
   "Other",
 ];
 const currencySymbols = { UAH: "₴", PLN: "zł", EUR: "€", USD: "$" };
-let activeCurrency = "UAH";
+let activeCurrency = "EUR";
 const money = (n) =>
   `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)} ${currencySymbols[activeCurrency] || activeCurrency}`;
 const nav = [
@@ -842,7 +842,7 @@ function Pricing({ plan, onClose }) {
           <article key={x.name} className={plan === x.name ? "selected" : ""}>
             <span>{x.name}</span>
             <h3>
-              {x.price === "0" ? "Free" : `$${x.price}`}{" "}
+              {x.price === "0" ? "Free" : `€${x.price}`}{" "}
               <small>{x.name === "Lifetime" ? "once" : "/ month"}</small>
             </h3>
             <p>{x.copy}</p>
@@ -967,7 +967,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     [mobileNav, setMobileNav] = useState(false),
     [budget, setBudget] = useState(30000),
     [goalSaved, setGoalSaved] = useState(0),
-    [currency, setCurrency] = useState("UAH"),
+    [currency, setCurrency] = useState("EUR"),
     [avatarUrl, setAvatarUrl] = useState(""),
     [loading, setLoading] = useState(true),
     [dataError, setDataError] = useState("");
@@ -1018,7 +1018,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
       setTransactions((transactionsResult.data || []).map(dbToTransaction));
       setBudget(Number(settings?.monthly_budget || 30000));
       setGoalSaved(Number(settings?.goal_saved || 0));
-      setCurrency(settings?.currency || "UAH");
+      setCurrency(settings?.currency || "EUR");
       setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start");
       if (avatarResult.data?.avatar_path) {
         const { data: signedAvatar } = await supabase.storage

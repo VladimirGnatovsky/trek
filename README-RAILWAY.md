@@ -35,7 +35,7 @@ Run the complete contents of `supabase/schema.sql` once in **Supabase → SQL Ed
 
 ## Secure paid plans
 
-Create one Payment Link for Plus and one for Lifetime in your payment provider (for example Stripe). In Railway → **Variables**, add their public hosted checkout URLs:
+Create one EUR Payment Link for Plus (€6/month) and one for Lifetime (€149 once) in your payment provider (for example Stripe). In Railway → **Variables**, add their public hosted checkout URLs:
 
 ```
 VITE_CHECKOUT_PLUS_URL=https://buy.stripe.com/...
