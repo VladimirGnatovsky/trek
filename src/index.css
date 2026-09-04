@@ -1,0 +1,19 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background: #15171b;
+  min-height: 100vh;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* keep content clear of the iPhone status bar / home indicator */
+#root {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
+}
