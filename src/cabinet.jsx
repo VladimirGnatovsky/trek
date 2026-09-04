@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   Bell,
@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import "./cabinet.css";
 import "./cabinet-extra.css";
+import { supabase } from "./supabase.js";
 
 const seed = [
   {
@@ -81,8 +82,10 @@ const categories = [
   "Fun",
   "Other",
 ];
+const currencySymbols = { UAH: "₴", PLN: "zł", EUR: "€", USD: "$" };
+let activeCurrency = "UAH";
 const money = (n) =>
-  `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)} ₴`;
+  `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)} ${currencySymbols[activeCurrency] || activeCurrency}`;
 const nav = [
   ["overview", "Overview", LayoutDashboard],
   ["transactions", "Transactions", ReceiptText],
@@ -336,7 +339,7 @@ function Overview({ transactions, metrics, onAdd, setView, onPlan, onGoal }) {
             <i style={{ width: `${metrics.goalSaved / 400}%` }} />
           </div>
           <p>
-            <b>{money(metrics.goalSaved)}</b> of 40,000 ₴{" "}
+            <b>{money(metrics.goalSaved)}</b> of {money(40000)}{" "}
             <em>{Math.round(metrics.goalSaved / 400)}%</em>
           </p>
           <button onClick={onGoal}>
@@ -425,7 +428,7 @@ function Transactions({ items, metrics, onAdd, onDelete, onClear }) {
     </section>
   );
 }
-function Plan({ onAdd, budget, setBudget, metrics }) {
+function Plan({ onAdd, budget, onBudgetSave, metrics }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(budget));
   const rows = [
@@ -436,7 +439,7 @@ function Plan({ onAdd, budget, setBudget, metrics }) {
     ["Everything else", 6100, "#b883ff"],
   ];
   const save = () => {
-    setBudget(Math.max(0, Number(value) || 0));
+    onBudgetSave(Math.max(0, Number(value) || 0));
     setEditing(false);
   };
   return (
@@ -501,13 +504,13 @@ function Plan({ onAdd, budget, setBudget, metrics }) {
     </section>
   );
 }
-function Goals({ onAdd, saved, setSaved }) {
+function Goals({ onAdd, saved, onGoalSave }) {
   const [contrib, setContrib] = useState("");
   const add = (e) => {
     e.preventDefault();
     const n = Number(contrib.replace(",", "."));
     if (n > 0) {
-      setSaved((s) => Math.min(40000, s + n));
+      onGoalSave(Math.min(40000, saved + n));
       setContrib("");
     }
   };
@@ -532,7 +535,7 @@ function Goals({ onAdd, saved, setSaved }) {
         </div>
         <div className="tc-goal-number">
           <b>{money(saved)}</b>
-          <span>of 40,000 ₴</span>
+          <span>of {money(40000)}</span>
           <em>{Math.round(saved / 400)}%</em>
         </div>
         <div className="tc-progress full">
@@ -641,10 +644,36 @@ function Analytics({ transactions, metrics }) {
     </section>
   );
 }
-function SettingsPage({ plan, setPlan, transactions }) {
-  const [currency, setCurrency] = useState("UAH");
-  const [name, setName] = useState("Volodymyr");
+function SettingsPage({
+  plan,
+  transactions,
+  user,
+  onProfileUpdate,
+  currency,
+  onCurrencyChange,
+  canExport,
+  onUpgrade,
+}) {
+  const initialName =
+    user?.user_metadata?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
+  const [name, setName] = useState(initialName);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const saveProfile = async () => {
+    const nextName = name.trim() || initialName;
+    try {
+      setSaving(true);
+      setProfileError("");
+      await onProfileUpdate(nextName);
+      setName(nextName);
+      setEditing(false);
+    } catch (error) {
+      setProfileError(error.message || "Could not update the profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const exportData = () => {
     const url = URL.createObjectURL(
       new Blob(
@@ -684,14 +713,17 @@ function SettingsPage({ plan, setPlan, transactions }) {
           {editing ? (
             <div className="tc-inline">
               <input value={name} onChange={(e) => setName(e.target.value)} />
-              <button onClick={() => setEditing(false)}>Save</button>
+              <button onClick={saveProfile} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </button>
             </div>
           ) : (
             <>
-              <h3>{name}</h3>
-              <p>volodymyr@trek.app</p>
+              <h3>{name || initialName}</h3>
+              <p>{user?.email || "No email available"}</p>
             </>
           )}
+          {profileError && <p className="tc-form-error">{profileError}</p>}
           <button onClick={() => setEditing(!editing)}>
             {editing ? "Cancel" : "Change profile"}
           </button>
@@ -702,7 +734,7 @@ function SettingsPage({ plan, setPlan, transactions }) {
           <div className="tc-choice">
             {["UAH", "PLN", "EUR", "USD"].map((c) => (
               <button
-                onClick={() => setCurrency(c)}
+                onClick={() => onCurrencyChange(c)}
                 className={currency === c ? "on" : ""}
                 key={c}
               >
@@ -719,21 +751,25 @@ function SettingsPage({ plan, setPlan, transactions }) {
               ? "Local tracking, budgets and goals."
               : "Plan is active in this browser demo."}
           </p>
-          <button onClick={() => setPlan("Start")}>Return to Start</button>
+          <button disabled>Managed through billing</button>
         </section>
         <section className="tc-panel">
           <span>YOUR DATA</span>
           <h3>Export a backup</h3>
-          <p>Download your current device data any time.</p>
-          <button onClick={exportData}>
-            <Download size={15} /> Export demo data
+          <p>
+            {canExport
+              ? "Download your current cloud data any time."
+              : "Cloud exports are available with Plus or Lifetime."}
+          </p>
+          <button onClick={canExport ? exportData : onUpgrade}>
+            <Download size={15} /> {canExport ? "Export my data" : "Upgrade to export"}
           </button>
         </section>
       </div>
     </section>
   );
 }
-function Pricing({ plan, setPlan, onClose }) {
+function Pricing({ plan, onClose }) {
   const choices = [
     {
       name: "Start",
@@ -767,8 +803,8 @@ function Pricing({ plan, setPlan, onClose }) {
       <span className="tc-kicker">MEMBERSHIP</span>
       <h2>Choose your Trek mode.</h2>
       <p className="tc-modal-copy">
-        This demo changes your plan locally. No card is requested and no money
-        is charged.
+        Membership changes only after secure payment confirmation. Trek never
+        receives or stores card details.
       </p>
       <div className="tc-prices">
         {choices.map((x) => (
@@ -788,12 +824,28 @@ function Pricing({ plan, setPlan, onClose }) {
               ))}
             </ul>
             <button
+              disabled={plan === x.name}
               onClick={() => {
-                setPlan(x.name);
-                onClose();
+                if (x.name === "Start") return;
+                const key =
+                  x.name === "Plus"
+                    ? "VITE_CHECKOUT_PLUS_URL"
+                    : "VITE_CHECKOUT_LIFETIME_URL";
+                const checkoutUrl = window.__TREK_ENV__?.[key];
+                if (!checkoutUrl) {
+                  window.alert(
+                    "Checkout is not configured yet. Add the payment-link URL in Railway before offering this plan."
+                  );
+                  return;
+                }
+                window.location.assign(checkoutUrl);
               }}
             >
-              {plan === x.name ? "Current plan" : `Choose ${x.name}`}
+              {plan === x.name
+                ? "Current plan"
+                : x.name === "Start"
+                ? "Included"
+                : `Continue to secure payment`}
             </button>
           </article>
         ))}
@@ -806,12 +858,13 @@ function AddModal({ onClose, onSave }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(categories[0]);
   const [type, setType] = useState("expense");
-  const submit = (e) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
     e.preventDefault();
     const n = Number(amount.replace(",", "."));
     if (merchant && n > 0) {
-      onSave({
-        id: Date.now(),
+      setBusy(true);
+      const saved = await onSave({
         merchant,
         category: type === "income" ? "Other" : category,
         type,
@@ -819,7 +872,8 @@ function AddModal({ onClose, onSave }) {
         date: new Date().toISOString().slice(0, 10),
         color: type === "income" ? "#59a9ff" : "#00e5a0",
       });
-      onClose();
+      setBusy(false);
+      if (saved) onClose();
     }
   };
   return (
@@ -865,28 +919,134 @@ function AddModal({ onClose, onSave }) {
             </select>
           </label>
         )}
-        <button className="tc-action">
-          Save {type} <Plus size={16} />
+        <button className="tc-action" disabled={busy}>
+          {busy ? "Saving…" : `Save ${type}`} <Plus size={16} />
         </button>
       </form>
     </Modal>
   );
 }
 
-export default function Cabinet({ onExit, onSignOut }) {
+export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
   const [view, setView] = useState("overview"),
-    [transactions, setTransactions] = useState(seed),
+    [transactions, setTransactions] = useState([]),
     [modal, setModal] = useState(null),
     [plan, setPlan] = useState("Start"),
     [notice, setNotice] = useState(false),
     [mobileNav, setMobileNav] = useState(false),
     [budget, setBudget] = useState(30000),
-    [goalSaved, setGoalSaved] = useState(28800);
+    [goalSaved, setGoalSaved] = useState(0),
+    [currency, setCurrency] = useState("UAH"),
+    [loading, setLoading] = useState(true),
+    [dataError, setDataError] = useState("");
+  const dbToTransaction = (row) => ({
+    id: row.id,
+    merchant: row.merchant,
+    category: row.category,
+    type: row.entry_type,
+    amount: Number(row.amount),
+    date: row.occurred_on,
+    color: row.entry_type === "income" ? "#59a9ff" : "#00e5a0",
+  });
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setDataError("");
+      const profile = {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || "",
+        email: user.email || "",
+        updated_at: new Date().toISOString(),
+      };
+      const { error: profileError } = await supabase.from("profiles").upsert(profile);
+      if (profileError) {
+        if (active) {
+          setDataError(profileError.message);
+          setLoading(false);
+        }
+        return;
+      }
+      const [settingsResult, transactionsResult, subscriptionResult] = await Promise.all([
+        supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
+        supabase.from("transactions").select("*").eq("user_id", user.id).order("occurred_on", { ascending: false }),
+        supabase.from("subscriptions").select("plan, status").eq("user_id", user.id).maybeSingle(),
+      ]);
+      const error = settingsResult.error || transactionsResult.error || subscriptionResult.error;
+      if (error) {
+        if (active) {
+          setDataError(error.message);
+          setLoading(false);
+        }
+        return;
+      }
+      if (!active) return;
+      const settings = settingsResult.data;
+      setTransactions((transactionsResult.data || []).map(dbToTransaction));
+      setBudget(Number(settings?.monthly_budget || 30000));
+      setGoalSaved(Number(settings?.goal_saved || 0));
+      setCurrency(settings?.currency || "UAH");
+      setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start");
+      setLoading(false);
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [user.id]);
+  const saveSettings = async (change) => {
+    const next = {
+      user_id: user.id,
+      currency,
+      monthly_budget: budget,
+      goal_saved: goalSaved,
+      ...change,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("user_settings").upsert(next);
+    if (error) {
+      setDataError(error.message);
+      return false;
+    }
+    if (change.currency) setCurrency(change.currency);
+    if (change.monthly_budget !== undefined) setBudget(Number(change.monthly_budget));
+    if (change.goal_saved !== undefined) setGoalSaved(Number(change.goal_saved));
+    return true;
+  };
   const metrics = useMemo(
     () => getMetrics(transactions, budget, goalSaved),
     [transactions, budget, goalSaved]
   );
-  const add = (t) => setTransactions((p) => [t, ...p]);
+  const add = async (t) => {
+    const { data, error } = await supabase
+      .from("transactions")
+      .insert({
+        user_id: user.id,
+        merchant: t.merchant,
+        category: t.category,
+        entry_type: t.type,
+        amount: t.amount,
+        occurred_on: t.date,
+      })
+      .select()
+      .single();
+    if (error) {
+      setDataError(error.message);
+      return false;
+    }
+    setTransactions((p) => [dbToTransaction(data), ...p]);
+    return true;
+  };
+  const remove = async (id) => {
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    if (error) return setDataError(error.message);
+    setTransactions((p) => p.filter((t) => t.id !== id));
+  };
+  const clear = async () => {
+    const { error } = await supabase.from("transactions").delete().eq("user_id", user.id);
+    if (error) return setDataError(error.message);
+    setTransactions([]);
+  };
   const common = { onAdd: () => setModal("add"), setView };
   let page =
     view === "overview" ? (
@@ -902,23 +1062,38 @@ export default function Cabinet({ onExit, onSignOut }) {
         items={transactions}
         metrics={metrics}
         onAdd={common.onAdd}
-        onDelete={(id) => setTransactions((p) => p.filter((t) => t.id !== id))}
-        onClear={() => setTransactions([])}
+        onDelete={remove}
+        onClear={clear}
       />
     ) : view === "plan" ? (
       <Plan
         onAdd={common.onAdd}
         budget={budget}
-        setBudget={setBudget}
+        onBudgetSave={(value) => saveSettings({ monthly_budget: value })}
         metrics={metrics}
       />
     ) : view === "goals" ? (
-      <Goals onAdd={common.onAdd} saved={goalSaved} setSaved={setGoalSaved} />
+      <Goals onAdd={common.onAdd} saved={goalSaved} onGoalSave={(value) => saveSettings({ goal_saved: value })} />
     ) : view === "analytics" ? (
       <Analytics transactions={transactions} metrics={metrics} />
     ) : (
-      <SettingsPage plan={plan} setPlan={setPlan} transactions={transactions} />
+      <SettingsPage
+        plan={plan}
+        transactions={transactions}
+        user={user}
+        onProfileUpdate={onProfileUpdate}
+        currency={currency}
+        onCurrencyChange={(value) => saveSettings({ currency: value })}
+        canExport={plan !== "Start"}
+        onUpgrade={() => setModal("plans")}
+      />
     );
+  const displayName =
+    user?.user_metadata?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
+  const analyticsUnlocked = plan !== "Start";
+  activeCurrency = currency;
+  if (loading) return <div className="tw-loading">Loading your money space…</div>;
+  if (dataError) return <div className="tw-loading">Database setup needed: {dataError}</div>;
   return (
     <div className="tc-app">
       <aside className="tc-side">
@@ -926,16 +1101,19 @@ export default function Cabinet({ onExit, onSignOut }) {
           <i>↗</i> trek
         </a>
         <small>PERSONAL SPACE</small>
-        {nav.map(([id, label, Icon]) => (
+        {nav.map(([id, label, Icon]) => {
+          const locked = id === "analytics" && !analyticsUnlocked;
+          return (
           <button
             key={id}
-            onClick={() => setView(id)}
-            className={view === id ? "on" : ""}
+            onClick={() => (locked ? setModal("plans") : setView(id))}
+            className={`${view === id ? "on" : ""}${locked ? " locked" : ""}`}
           >
             <Icon size={17} />
-            {label}
+            {label}{locked ? " · Plus" : ""}
           </button>
-        ))}
+          );
+        })}
         <div className="tc-side-bottom">
           <button onClick={() => setModal("plans")}>
             <CreditCard size={17} />
@@ -963,7 +1141,7 @@ export default function Cabinet({ onExit, onSignOut }) {
             <button onClick={() => setNotice(!notice)}>
               <Bell size={18} />
             </button>
-            <span>V</span>
+            <span>{displayName.charAt(0).toUpperCase()}</span>
           </div>
           {notice && (
             <div className="tc-notice">
@@ -973,18 +1151,22 @@ export default function Cabinet({ onExit, onSignOut }) {
           )}
           {mobileNav && (
             <div className="tc-mobile-menu">
-              {nav.map(([id, label, Icon]) => (
+              {nav.map(([id, label, Icon]) => {
+                const locked = id === "analytics" && !analyticsUnlocked;
+                return (
                 <button
                   key={id}
                   onClick={() => {
-                    setView(id);
+                    if (locked) setModal("plans");
+                    else setView(id);
                     setMobileNav(false);
                   }}
                 >
                   <Icon size={16} />
-                  {label}
+                  {label}{locked ? " · Plus" : ""}
                 </button>
-              ))}
+                );
+              })}
               <button
                 onClick={() => {
                   setView("settings");
@@ -1005,7 +1187,7 @@ export default function Cabinet({ onExit, onSignOut }) {
         <AddModal onClose={() => setModal(null)} onSave={add} />
       )}{" "}
       {modal === "plans" && (
-        <Pricing plan={plan} setPlan={setPlan} onClose={() => setModal(null)} />
+        <Pricing plan={plan} onClose={() => setModal(null)} />
       )}
     </div>
   );

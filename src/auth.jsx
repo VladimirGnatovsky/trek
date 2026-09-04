@@ -9,10 +9,12 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabase.js";
 import "./auth.css";
+import "./auth-extra.css";
 
-export default function AuthScreen() {
+export default function AuthScreen({ onBack }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,7 +31,10 @@ export default function AuthScreen() {
       result = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: redirectTo },
+        options: {
+          emailRedirectTo: redirectTo,
+          data: { full_name: name.trim() },
+        },
       });
       if (!result.error)
         setMessage("Check your email to confirm the account, then sign in.");
@@ -62,9 +67,9 @@ export default function AuthScreen() {
   return (
     <main className="ta-auth">
       <section className="ta-brand">
-        <a href="#top">
+        <button type="button" className="ta-brand-link" onClick={onBack}>
           <i>↗</i> Trek
-        </a>
+        </button>
         <div>
           <span>PRIVATE MONEY SPACE</span>
           <h1>
@@ -93,6 +98,17 @@ export default function AuthScreen() {
             <div className="ta-message" role="status">
               {message}
             </div>
+          )}
+          {mode === "signup" && (
+            <label>
+              Full name
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                required
+              />
+            </label>
           )}
           <label>
             Email

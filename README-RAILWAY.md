@@ -29,4 +29,17 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 
 Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. The Docker startup script exposes only these two public values at runtime, so a Railway rebuild cache cannot leave the sign-in screen without configuration. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
 
-For production user accounts, payment processing, or cloud-synced financial records, add a server-side backend and store the relevant credentials only in Railway service variables.
+## Persistent user data
+
+Run the complete contents of `supabase/schema.sql` once in **Supabase → SQL Editor → New query → Run**. It creates private tables for profiles, settings, transactions and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
+
+## Secure paid plans
+
+Create one Payment Link for Plus and one for Lifetime in your payment provider (for example Stripe). In Railway → **Variables**, add their public hosted checkout URLs:
+
+```
+VITE_CHECKOUT_PLUS_URL=https://buy.stripe.com/...
+VITE_CHECKOUT_LIFETIME_URL=https://buy.stripe.com/...
+```
+
+Trek redirects a client to the provider's hosted checkout and never receives card details. Do not put card numbers, payment secrets, webhook secrets, or a Supabase secret/service-role key in Railway variables exposed to the browser. The membership table intentionally has no browser write policy: a production payment webhook must update `public.subscriptions` after the provider confirms payment.

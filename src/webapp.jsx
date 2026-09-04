@@ -664,7 +664,7 @@ function Workspace({ onExit }) {
 
 export default function TrekWeb() {
   const [session, setSession] = useState(undefined);
-  const [screen, setScreen] = useState("workspace");
+  const [screen, setScreen] = useState("landing");
   useEffect(() => {
     if (!supabase) {
       setSession(null);
@@ -680,13 +680,31 @@ export default function TrekWeb() {
   }, []);
   if (session === undefined)
     return <div className="tw-loading">Loading Trek…</div>;
-  if (!session) return <AuthScreen />;
-  return screen === "landing" ? (
-    <Landing onOpen={() => setScreen("workspace")} />
-  ) : (
+  const updateProfile = async (fullName) => {
+    const { data, error } = await supabase.auth.updateUser({
+      data: { full_name: fullName },
+    });
+    if (error) throw error;
+    const { error: profileError } = await supabase.from("profiles").upsert({
+      id: data.user.id,
+      full_name: fullName,
+      email: data.user.email || "",
+      updated_at: new Date().toISOString(),
+    });
+    if (profileError) throw profileError;
+    setSession((current) =>
+      current ? { ...current, user: data.user } : current
+    );
+  };
+  const openAccount = () => setScreen(session ? "workspace" : "auth");
+  if (screen === "landing") return <Landing onOpen={openAccount} />;
+  if (!session) return <AuthScreen onBack={() => setScreen("landing")} />;
+  return (
     <Cabinet
       onExit={() => setScreen("landing")}
       onSignOut={() => supabase.auth.signOut()}
+      user={session.user}
+      onProfileUpdate={updateProfile}
     />
   );
 }
