@@ -1,0 +1,35 @@
+.tw-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #31413a;
+  background: #131a18;
+  color: #00e5a0;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .tw-product { overflow: hidden; }
+  .tw-browser { margin-top: 34px; width: 100%; }
+  .tw-browserbar { padding: 0 11px; }
+  .tw-browserbar em { display: none; }
+  .tw-browserbar button { margin-left: auto; font-size: 10px; }
+  .tw-previewbody { height: auto; min-height: 345px; grid-template-columns: 1fr; }
+  .tw-previewbody main { min-width: 0; padding: 14px; }
+  .tw-previewhead { min-width: 0; }
+  .tw-kpirow { min-width: 0; padding: 14px; gap: 10px; }
+  .tw-kpirow > div { min-width: 0; }
+  .tw-kpirow small { letter-spacing: .04em; font-size: 9px; }
+  .tw-kpirow b { font-size: 28px; overflow-wrap: anywhere; }
+  .tw-score { width: 60px; height: 60px; flex: 0 0 60px; }
+  .tw-previewgrid { min-width: 0; }
+  .tw-previewgrid > div { min-width: 0; padding: 13px; }
+  .tw-previewbody .tw-chart { height: 105px; }
+  .tw-bars { gap: 4px; }
+  .tw-bar-item span { max-width: 13px; }
+  .tw-account-btn { width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .tw-account-btn span { display: none; }
+}

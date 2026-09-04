@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import "./cabinet.css";
 import "./cabinet-extra.css";
+import "./profile.css";
 import { supabase } from "./supabase.js";
 
 const seed = [
@@ -653,6 +654,8 @@ function SettingsPage({
   onCurrencyChange,
   canExport,
   onUpgrade,
+  avatarUrl,
+  onAvatarUpload,
 }) {
   const initialName =
     user?.user_metadata?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
@@ -660,6 +663,7 @@ function SettingsPage({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const saveProfile = async () => {
     const nextName = name.trim() || initialName;
     try {
@@ -698,6 +702,20 @@ function SettingsPage({
     a.click();
     URL.revokeObjectURL(url);
   };
+  const uploadAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setAvatarBusy(true);
+      setProfileError("");
+      await onAvatarUpload(file);
+    } catch (error) {
+      setProfileError(error.message || "Could not upload the image.");
+    } finally {
+      setAvatarBusy(false);
+      event.target.value = "";
+    }
+  };
   return (
     <section className="tc-page">
       <div className="tc-page-head">
@@ -719,11 +737,24 @@ function SettingsPage({
             </div>
           ) : (
             <>
-              <h3>{name || initialName}</h3>
-              <p>{user?.email || "No email available"}</p>
+              <div className="tc-profile-row">
+                {avatarUrl ? (
+                  <img className="tc-profile-avatar" src={avatarUrl} alt="Profile" />
+                ) : (
+                  <span className="tc-profile-avatar">{(name || initialName).charAt(0).toUpperCase()}</span>
+                )}
+                <div>
+                  <h3>{name || initialName}</h3>
+                  <p>{user?.email || "No email available"}</p>
+                </div>
+              </div>
             </>
           )}
           {profileError && <p className="tc-form-error">{profileError}</p>}
+          <label className="tc-upload">
+            {avatarBusy ? "Uploading…" : "Upload photo"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} disabled={avatarBusy} />
+          </label>
           <button onClick={() => setEditing(!editing)}>
             {editing ? "Cancel" : "Change profile"}
           </button>
@@ -937,6 +968,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     [budget, setBudget] = useState(30000),
     [goalSaved, setGoalSaved] = useState(0),
     [currency, setCurrency] = useState("UAH"),
+    [avatarUrl, setAvatarUrl] = useState(""),
     [loading, setLoading] = useState(true),
     [dataError, setDataError] = useState("");
   const dbToTransaction = (row) => ({
@@ -967,12 +999,13 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
         }
         return;
       }
-      const [settingsResult, transactionsResult, subscriptionResult] = await Promise.all([
+      const [settingsResult, transactionsResult, subscriptionResult, avatarResult] = await Promise.all([
         supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
         supabase.from("transactions").select("*").eq("user_id", user.id).order("occurred_on", { ascending: false }),
         supabase.from("subscriptions").select("plan, status").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle(),
       ]);
-      const error = settingsResult.error || transactionsResult.error || subscriptionResult.error;
+      const error = settingsResult.error || transactionsResult.error || subscriptionResult.error || avatarResult.error;
       if (error) {
         if (active) {
           setDataError(error.message);
@@ -987,6 +1020,12 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
       setGoalSaved(Number(settings?.goal_saved || 0));
       setCurrency(settings?.currency || "UAH");
       setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start");
+      if (avatarResult.data?.avatar_path) {
+        const { data: signedAvatar } = await supabase.storage
+          .from("trek-avatars")
+          .createSignedUrl(avatarResult.data.avatar_path, 60 * 60);
+        if (signedAvatar?.signedUrl && active) setAvatarUrl(signedAvatar.signedUrl);
+      }
       setLoading(false);
     };
     load();
@@ -1012,6 +1051,27 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     if (change.monthly_budget !== undefined) setBudget(Number(change.monthly_budget));
     if (change.goal_saved !== undefined) setGoalSaved(Number(change.goal_saved));
     return true;
+  };
+  const uploadAvatar = async (file) => {
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      throw new Error("Choose a PNG, JPG or WebP image under 2 MB.");
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${user.id}/${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from("trek-avatars")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) throw uploadError;
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ avatar_path: path, updated_at: new Date().toISOString() })
+      .eq("id", user.id);
+    if (profileError) throw profileError;
+    const { data: signedAvatar, error: urlError } = await supabase.storage
+      .from("trek-avatars")
+      .createSignedUrl(path, 60 * 60);
+    if (urlError) throw urlError;
+    setAvatarUrl(signedAvatar.signedUrl);
   };
   const metrics = useMemo(
     () => getMetrics(transactions, budget, goalSaved),
@@ -1086,6 +1146,8 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
         onCurrencyChange={(value) => saveSettings({ currency: value })}
         canExport={plan !== "Start"}
         onUpgrade={() => setModal("plans")}
+        avatarUrl={avatarUrl}
+        onAvatarUpload={uploadAvatar}
       />
     );
   const displayName =
@@ -1141,7 +1203,11 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
             <button onClick={() => setNotice(!notice)}>
               <Bell size={18} />
             </button>
-            <span>{displayName.charAt(0).toUpperCase()}</span>
+            {avatarUrl ? (
+              <img className="tc-top-avatar" src={avatarUrl} alt="My profile" />
+            ) : (
+              <span>{displayName.charAt(0).toUpperCase()}</span>
+            )}
           </div>
           {notice && (
             <div className="tc-notice">

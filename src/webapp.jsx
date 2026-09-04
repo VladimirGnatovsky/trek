@@ -16,10 +16,12 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  UserRound,
   Wallet,
   X,
 } from "lucide-react";
 import "./webapp.css";
+import "./responsive.css";
 import Cabinet from "./cabinet.jsx";
 import AuthScreen from "./auth.jsx";
 import { supabase } from "./supabase.js";
@@ -220,7 +222,7 @@ function FAQ() {
   );
 }
 
-function Landing({ onOpen }) {
+function Landing({ onOpen, session }) {
   return (
     <div className="tw-landing">
       <header className="tw-nav">
@@ -234,12 +236,20 @@ function Landing({ onOpen }) {
           <a href="#faq">FAQ</a>
         </nav>
         <div>
-          <button className="tw-login" onClick={onOpen}>
-            Log In
-          </button>
-          <button className="tw-dark-btn" onClick={onOpen}>
-            Start Free <ArrowRight size={15} />
-          </button>
+          {session ? (
+            <button className="tw-account-btn" onClick={onOpen} aria-label="Open my account">
+              <UserRound size={17} /> <span>My account</span>
+            </button>
+          ) : (
+            <>
+              <button className="tw-login" onClick={onOpen}>
+                Log In
+              </button>
+              <button className="tw-dark-btn" onClick={onOpen}>
+                Start Free <ArrowRight size={15} />
+              </button>
+            </>
+          )}
         </div>
       </header>
       <main id="top">
@@ -697,7 +707,7 @@ export default function TrekWeb() {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (screen === "landing") return <Landing onOpen={openAccount} />;
+  if (screen === "landing") return <Landing onOpen={openAccount} session={session} />;
   if (!session) return <AuthScreen onBack={() => setScreen("landing")} />;
   return (
     <Cabinet

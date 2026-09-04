@@ -8,6 +8,7 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.profiles add column if not exists avatar_path text;
 
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -85,3 +86,18 @@ select id, coalesce(raw_user_meta_data ->> 'full_name', ''), coalesce(email, '')
 on conflict (id) do nothing;
 insert into public.user_settings (user_id) select id from auth.users on conflict (user_id) do nothing;
 insert into public.subscriptions (user_id) select id from auth.users on conflict (user_id) do nothing;
+
+-- Trek owner: requested Lifetime access. Change/remove this line if ownership changes.
+update public.subscriptions set plan = 'Lifetime', status = 'active', updated_at = now()
+where user_id in (select id from auth.users where lower(email) = 'straiker1990@gmail.com');
+
+-- Private avatar storage. Files are readable/writable only by their owner.
+insert into storage.buckets (id, name, public) values ('trek-avatars', 'trek-avatars', false)
+on conflict (id) do nothing;
+drop policy if exists "Users manage own Trek avatar" on storage.objects;
+create policy "Users manage own Trek avatar" on storage.objects
+  for all using (
+    bucket_id = 'trek-avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  ) with check (
+    bucket_id = 'trek-avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );

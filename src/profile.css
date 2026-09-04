@@ -1,0 +1,30 @@
+.tc-profile-row { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
+.tc-profile-row h3 { margin: 0; }
+.tc-profile-row p { margin: 4px 0 0; }
+.tc-profile-avatar, .tc-top-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #18372c;
+  color: #00e5a0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #2c5240;
+  font-weight: 800;
+}
+.tc-top-avatar { width: 29px; height: 29px; }
+.tc-upload {
+  position: relative;
+  display: inline-flex;
+  margin-top: 12px;
+  border: 1px solid #303b3c;
+  background: #171d20;
+  color: #d4ded8;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.tc-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.tc-form-error { color: #ff9f89 !important; }
+@media (max-width: 760px) { .tc-profile-avatar { width: 48px; height: 48px; } }
