@@ -200,8 +200,8 @@ textarea:focus-visible {
   line-height: 1.25;
 }
 
-.tc-signal-icon,
-.tc-goal-big,
+.tc-signal > .tc-signal-icon,
+.tc-goal > .tc-goal-big,
 .tc-empty-icon,
 .tc-goal-icon,
 .tc-txn-icon {
@@ -210,10 +210,13 @@ textarea:focus-visible {
   flex: 0 0 auto;
 }
 
-.tc-signal-icon {
+.tc-signal > .tc-signal-icon {
   width: 40px;
   height: 40px;
   padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: 0;
 }
 
 .tc-signal-icon svg,
@@ -254,10 +257,13 @@ textarea:focus-visible {
   min-height: 40px;
 }
 
-.tc-goal-big {
+.tc-goal > .tc-goal-big {
   width: 44px;
   height: 44px;
   padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: 0;
   border-radius: 5px;
   color: #dff8eb;
 }
