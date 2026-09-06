@@ -66,7 +66,7 @@ const seed = [
 
 const bars = [46, 58, 51, 68, 61, 82, 71, 65, 77, 58, 63, 49];
 const fmt = (v) =>
-  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " ₴";
+  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " €";
 
 function TrendChart() {
   return (
@@ -143,22 +143,22 @@ function ProductPreview({ onOpen }) {
           <div className="tw-kpirow">
             <div>
               <small>SAFE TO SPEND THIS MONTH</small>
-              <b>12,480 ₴</b>
-              <em>+8% above plan</em>
+              <b>1,248 €</b>
+              <em>8% ahead of plan</em>
             </div>
             <ScoreRing />
           </div>
           <div className="tw-previewgrid">
             <div>
               <small>MONTHLY SPENDING</small>
-              <b>28,420 ₴</b>
+              <b>2,842 €</b>
               <TrendChart />
             </div>
             <div className="tw-insight">
               <Sparkles size={18} />
               <small>TREK SIGNAL</small>
               <b>Coffee is 34% above your normal pace.</b>
-              <span>Cut 65 ₴ a day and keep 1,950 ₴ this month.</span>
+              <span>Cut 6.50 € a day and keep 195 € this month.</span>
             </div>
           </div>
         </main>
@@ -299,7 +299,7 @@ function Landing({ onOpen, session, account }) {
             <div className="tw-orbit two" />
             <div className="tw-cash-card">
               <span>SAFE TO SPEND TODAY</span>
-              <b>1,248 ₴</b>
+              <b>1,248 €</b>
               <em>after planned expenses</em>
               <div className="tw-cash-line">
                 <i />
@@ -421,7 +421,7 @@ function Landing({ onOpen, session, account }) {
             <div>
               <span>START</span>
               <b>
-                0 ₴ <small>/ forever</small>
+                0 € <small>/ forever</small>
               </b>
             </div>
             <ul>
@@ -543,9 +543,9 @@ function Workspace({ onExit }) {
         <section className="tw-dash-hero">
           <div>
             <span>SAFE TO SPEND UNTIL SEP 30</span>
-            <h2>12,480 ₴</h2>
+            <h2>1,248 €</h2>
             <p>
-              <i /> 1,240 ₴ more than your plan
+              <i /> 124 € more than your plan
             </p>
           </div>
           <ScoreRing score={78} />
@@ -581,7 +581,7 @@ function Workspace({ onExit }) {
             <span>TREK SIGNAL</span>
             <h3>Coffee is 34% above your normal pace</h3>
             <p>
-              Cut coffee by 65 ₴ a day and you keep another 1,950 ₴ by month
+              Cut coffee by 6.50 € a day and you keep another 195 € by month
               end.
             </p>
             <button>
@@ -614,14 +614,14 @@ function Workspace({ onExit }) {
             ))}
           </section>
           <section className="tw-panel tw-goal">
-            <div className="tw-goal-icon">✈</div>
+            <div className="tw-goal-icon"><Target size={18} /></div>
             <span>GOAL</span>
             <h3>Italy summer trip</h3>
             <div className="tw-progress">
               <i style={{ width: "72%" }} />
             </div>
             <p>
-              <b>28,800 ₴</b> of 40,000 ₴ <em>72%</em>
+              <b>2,880 €</b> of 4,000 € <em>72%</em>
             </p>
             <button>
               Open goal <ArrowRight size={15} />

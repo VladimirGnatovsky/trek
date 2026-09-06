@@ -115,8 +115,13 @@ function calculateMetrics(items, budget, selectedMonth, recurring = []) {
 function Modal({ children, onClose, wide = false }) {
   useEffect(() => {
     const close = (event) => event.key === "Escape" && onClose();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", close);
+    };
   }, [onClose]);
   return <div className="tc-modal" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className={`tc-modal-card${wide ? " tc-modal-wide" : ""}`} role="dialog" aria-modal="true">
@@ -317,7 +322,7 @@ function EntryModal({ initial, month, onClose, onSave, onScan }) {
     <label>Type<select value={form.type} onChange={(event) => set("type", event.target.value)}><option value="expense">Expense</option><option value="income">Income</option></select></label>
     <label>Merchant or source<input autoFocus value={form.merchant} onChange={(event) => set("merchant", event.target.value)} /></label>
     <label>Amount<input inputMode="decimal" value={form.amount} onChange={(event) => set("amount", event.target.value)} /></label>
-    <label>Date<input type="date" value={form.date} onChange={(event) => set("date", event.target.value)} /></label>
+    <label>Date<input className="tn-date-input" type="date" value={form.date} onChange={(event) => set("date", event.target.value)} /></label>
     {form.type === "expense" && <label>Category<select value={form.category} onChange={(event) => set("category", event.target.value)}>{CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select></label>}
     <label>Tags<input placeholder="work, travel" value={Array.isArray(form.tags) ? form.tags.join(", ") : form.tags} onChange={(event) => set("tags", event.target.value)} /></label>
     <label className="tn-span-2">Note<input placeholder="Optional context" value={form.note || ""} onChange={(event) => set("note", event.target.value)} /></label>
@@ -328,7 +333,7 @@ function EntryModal({ initial, month, onClose, onSave, onScan }) {
 
 function GoalModal({ onClose, onSave }) {
   const [form, setForm] = useState({ name: "", target: "", deadline: "", icon: "Target", color: COLORS[0] });
-  return <Modal onClose={onClose}><span className="tc-kicker">NEW GOAL</span><h2>Give your money direction.</h2><form className="tc-form" onSubmit={async (event) => { event.preventDefault(); if (form.name && Number(form.target) > 0 && await onSave(form)) onClose(); }}><label>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Emergency fund" /></label><label>Target amount<input inputMode="decimal" value={form.target} onChange={(event) => setForm({ ...form, target: event.target.value })} /></label><label>Target date<input type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} /></label><label>Color<input type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></label><button className="tc-action">Create goal</button></form></Modal>;
+  return <Modal onClose={onClose}><span className="tc-kicker">NEW GOAL</span><h2>Give your money direction.</h2><form className="tc-form" onSubmit={async (event) => { event.preventDefault(); if (form.name && Number(form.target) > 0 && await onSave(form)) onClose(); }}><label>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Emergency fund" /></label><label>Target amount<input inputMode="decimal" value={form.target} onChange={(event) => setForm({ ...form, target: event.target.value })} /></label><label>Target date<input className="tn-date-input" type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} /></label><label>Color<input type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></label><button className="tc-action">Create goal</button></form></Modal>;
 }
 
 function RecurringModal({ onClose, onSave }) {

@@ -381,6 +381,11 @@ textarea:focus-visible {
   min-height: 42px;
 }
 
+.tc-page-head > .tc-action,
+.tc-page-head .tcrypto-head-actions > button {
+  min-height: 44px;
+}
+
 .tc-modal-card {
   border-radius: 8px;
 }
@@ -460,6 +465,17 @@ textarea:focus-visible {
   color: #07110d;
   font-weight: 800;
   line-height: 1;
+}
+
+/* Keep decorative marks independent from platform-specific symbol fonts. */
+.tc-signal::after {
+  content: "";
+  width: 132px;
+  height: 132px;
+  right: -18px;
+  bottom: -34px;
+  background: rgba(0, 229, 160, 0.075);
+  clip-path: polygon(50% 0, 61% 36%, 100% 50%, 61% 64%, 50% 100%, 39% 64%, 0 50%, 39% 36%);
 }
 
 /* Authentication */
@@ -779,6 +795,7 @@ textarea:focus-visible {
 
   .tc-modal-card {
     width: 100%;
+    min-width: 0;
     max-height: calc(100dvh - 24px);
     padding: 28px 20px 22px;
     border-radius: 8px;
@@ -795,6 +812,22 @@ textarea:focus-visible {
     height: 40px;
     right: 12px;
     top: 12px;
+  }
+
+  .tc-form,
+  .tc-form label,
+  .tn-form-grid,
+  .tn-form-grid > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tc-form input,
+  .tc-form select,
+  .tc-form textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .tc-prices {
@@ -943,6 +976,14 @@ textarea:focus-visible {
 
   .tc-choice button {
     justify-content: center;
+  }
+
+  .tcrypto-head-actions {
+    gap: 8px;
+  }
+
+  .tcrypto-head-actions > button {
+    padding-inline: 12px;
   }
 }
 

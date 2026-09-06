@@ -1013,7 +1013,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     [plan, setPlan] = useState("Start"),
     [notice, setNotice] = useState(false),
     [mobileNav, setMobileNav] = useState(false),
-    [budget, setBudget] = useState(30000),
+    [budget, setBudget] = useState(3000),
     [goalSaved, setGoalSaved] = useState(0),
     [currency, setCurrency] = useState("EUR"),
     [avatarUrl, setAvatarUrl] = useState(""),
@@ -1064,7 +1064,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
       if (!active) return;
       const settings = settingsResult.data;
       setTransactions((transactionsResult.data || []).map(dbToTransaction));
-      setBudget(Number(settings?.monthly_budget || 30000));
+      setBudget(Number(settings?.monthly_budget || 3000));
       setGoalSaved(Number(settings?.goal_saved || 0));
       setCurrency(settings?.currency || "EUR");
       setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start");
