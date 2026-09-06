@@ -3,7 +3,9 @@
 The iOS build uses the same Supabase account, transactions, plans, budgets, goals,
 recurring items, analytics, Stripe membership and Trek Coach as the web app.
 It opens directly to sign-in/dashboard and includes receipt recognition in the
-new-transaction sheet.
+new-transaction sheet. Lifetime members can also import CSV or PDF bank
+statements from Transactions; imported months and converted amounts sync through
+Supabase just like manual entries.
 
 ## Before building
 
@@ -14,6 +16,10 @@ Deploy the current repository to Railway first. Receipt recognition calls:
 Railway must contain `GEMINI_API_KEY`, `GEMINI_MODEL`, the Supabase variables,
 Stripe variables and `PUBLIC_APP_URL`. `VITE_API_BASE_URL` is optional and defaults
 to `PUBLIC_APP_URL` on the hosted build.
+
+Run the latest `supabase/schema.sql` once before using statement import. It adds
+the original currency, historical exchange-rate metadata and duplicate-import
+protection to transactions.
 
 ## Preview the native layout
 

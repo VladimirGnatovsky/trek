@@ -37,6 +37,16 @@ create index if not exists transactions_user_date_idx on public.transactions (us
 alter table public.transactions add column if not exists note text not null default '';
 alter table public.transactions add column if not exists tags text[] not null default '{}';
 alter table public.transactions add column if not exists needs_review boolean not null default false;
+-- Bank statement provenance keeps conversions auditable and prevents importing the
+-- same row twice. Null import hashes remain valid for manually entered records.
+alter table public.transactions add column if not exists original_amount numeric;
+alter table public.transactions add column if not exists original_currency text;
+alter table public.transactions add column if not exists exchange_rate numeric;
+alter table public.transactions add column if not exists exchange_rate_date date;
+alter table public.transactions add column if not exists import_hash text;
+alter table public.transactions add column if not exists import_source text;
+create unique index if not exists transactions_user_import_hash_idx
+  on public.transactions (user_id, import_hash);
 
 -- Month-specific plans replace the old single demo budget while keeping the old
 -- settings column as a fallback for accounts created before this migration.

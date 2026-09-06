@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
+  ArrowUpRight,
   BarChart3,
   Bell,
   CalendarDays,
@@ -1247,7 +1249,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     <div className="tc-app">
       <aside className="tc-side">
         <a className="tc-brand" onClick={onExit}>
-          <i>↗</i> trek
+          <i><ArrowUpRight size={17} /></i> trek
         </a>
         <small>PERSONAL SPACE</small>
         {nav.map(([id, label, Icon]) => {
@@ -1271,7 +1273,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
           <button onClick={() => setView("settings")}>
             <Settings size={17} /> Settings
           </button>
-          <button onClick={onExit}>← Back to home</button>
+          <button onClick={onExit}><ArrowLeft size={16} /> Back to home</button>
           <button onClick={onSignOut}>
             <LogOut size={17} />
             Sign out

@@ -12,3 +12,4 @@
 .tw-steps article>span{font:700 clamp(28px,3.2vw,46px)/1 var(--mono);letter-spacing:-.08em;color:#00e5a0;margin-bottom:30px;text-shadow:0 0 22px rgba(0,229,160,.2)}.tw-nav nav a,.tw-login,.tw-dark-btn,.tw-primary,.tw-play{text-transform:none;letter-spacing:0}.tw-logo{text-transform:none}@media(max-width:760px){.tw-steps article>span{font-size:32px;margin-bottom:18px}}
 
 .tw-loading{min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#00e5a0;font:14px var(--mono)}
+.tw-trust span,.tw-price-card li{display:flex;align-items:center;gap:8px}.tw-trust svg,.tw-price-card li svg{flex:0 0 auto}.tw-price-card li:before{content:none!important}

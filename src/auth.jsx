@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   KeyRound,
   LockKeyhole,
   Mail,
@@ -70,7 +71,7 @@ export default function AuthScreen({ onBack }) {
     <main className="ta-auth">
       <section className="ta-brand">
         <button type="button" className="ta-brand-link" onClick={onBack}>
-          <i>↗</i> Trek
+          <i><ArrowUpRight size={18} /></i> Trek
         </button>
         <div>
           <span>PRIVATE MONEY SPACE</span>

@@ -53,6 +53,16 @@ GEMINI_API_KEY=your-Google-AI-Studio-key
 GEMINI_MODEL=gemini-3.5-flash
 ```
 
+The same private Gemini connection extracts transaction tables from PDF bank
+statements. CSV statements are parsed locally on the Railway server without AI.
+Statement import is checked server-side and is available only to an active
+Lifetime account. Currency conversion uses the official historical NBU rate for
+each transaction date; there is no additional exchange-rate key to configure.
+
+After deploying this update, run the latest `supabase/schema.sql` in the Supabase
+SQL Editor. The migration adds conversion provenance and duplicate-import
+protection to `transactions`.
+
 ## Complete Stripe billing
 
 For automatic plan activation and the customer billing portal, add these server-only Railway variables:

@@ -3,6 +3,7 @@ import {
   Plus, X, Search, Camera, Loader2, ChevronLeft, ChevronRight, Check,
   Home, PieChart, Receipt, Settings as SettingsIcon, Download, Upload, WalletCards,
   Utensils, Car, PartyPopper, HeartPulse, ShoppingBag, RefreshCw, Tag,
+  TrendingDown, TrendingUp, Minus,
 } from "lucide-react";
 
 /* ================================================================
@@ -535,7 +536,7 @@ export default function Trek() {
         <div className="tk-balancegrid"><span>Income <Money n={incomeTotal} /></span><span>Spent <Money n={total} /></span></div>
         <div className="tk-count">
           {monthTxns.length} {monthTxns.length === 1 ? "transaction" : "transactions"}
-          {deltaPct !== null && <span className={"tk-delta " + (deltaPct > 0 ? "up" : deltaPct < 0 ? "down" : "")}>{deltaPct > 0 ? "↑" : deltaPct < 0 ? "↓" : "→"} {Math.abs(deltaPct)}% vs last month</span>}
+          {deltaPct !== null && <span className={"tk-delta " + (deltaPct > 0 ? "up" : deltaPct < 0 ? "down" : "")}>{deltaPct > 0 ? <TrendingUp size={13} /> : deltaPct < 0 ? <TrendingDown size={13} /> : <Minus size={13} />} {Math.abs(deltaPct)}% vs last month</span>}
         </div>
         {budget > 0 && !editingBudget && (
           <div className="tk-budget">
@@ -854,7 +855,7 @@ const CSS = `
 .tk-total.sm{font-size:30px;margin-top:4px;}
 .tk-sym{color:var(--muted);font-weight:400;margin-right:2px;}
 .tk-count{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:6px;letter-spacing:.03em;}
-.tk-delta{margin-left:8px;}
+.tk-delta{margin-left:8px;display:inline-flex;align-items:center;gap:4px;}
 .tk-delta.up{color:#E8654B;} .tk-delta.down{color:#4FC08D;}
 .tk-balancegrid{display:flex;gap:18px;margin-top:12px;font:11px var(--mono);color:var(--muted);}
 .tk-balancegrid span{display:flex;gap:5px;align-items:center;}

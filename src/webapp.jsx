@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   BarChart3,
   BellRing,
   CalendarDays,
+  Check,
   ChevronRight,
   CircleDollarSign,
   CircleHelp,
@@ -12,6 +15,7 @@ import {
   LayoutDashboard,
   Menu,
   Plus,
+  Play,
   ReceiptText,
   ShieldCheck,
   Sparkles,
@@ -227,7 +231,7 @@ function Landing({ onOpen, session }) {
     <div className="tw-landing">
       <header className="tw-nav">
         <a className="tw-logo" href="#top">
-          <span>↗</span> Trek
+          <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <nav>
           <a href="#product">Product</a>
@@ -281,12 +285,12 @@ function Landing({ onOpen, session }) {
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
               >
-                <span>▶</span> See How It Works
+                <span><Play size={13} fill="currentColor" /></span> See How It Works
               </button>
             </div>
             <div className="tw-trust">
-              <span>✓ Your Data Stays Yours</span>
-              <span>✓ UAH · PLN · EUR · USD</span>
+              <span><ShieldCheck size={14} /> Your Data Stays Yours</span>
+              <span><CircleDollarSign size={14} /> UAH · PLN · EUR · USD</span>
             </div>
           </div>
           <div className="tw-hero-art">
@@ -420,10 +424,10 @@ function Landing({ onOpen, session }) {
               </b>
             </div>
             <ul>
-              <li>Manual expenses and income</li>
-              <li>Monthly plan</li>
-              <li>Goals and reminders</li>
-              <li>Offline on your device</li>
+              <li><Check size={14} /> Manual expenses and income</li>
+              <li><Check size={14} /> Monthly plan</li>
+              <li><Check size={14} /> Goals and reminders</li>
+              <li><Check size={14} /> Offline on your device</li>
             </ul>
             <button onClick={onOpen}>
               Start For Free <ArrowRight size={16} />
@@ -457,7 +461,7 @@ function Landing({ onOpen, session }) {
       </main>
       <footer>
         <a className="tw-logo" href="#top">
-          <span>↗</span> Trek
+          <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <p>Your money. Your pace. Your data.</p>
         <span>© 2026 Trek</span>
@@ -497,7 +501,7 @@ function Workspace({ onExit }) {
     <div className="tw-workspace">
       <aside className="tw-side">
         <a className="tw-logo" onClick={onExit}>
-          <span>↗</span> Trek
+          <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <small>PERSONAL SPACE</small>
         <button className="on">
@@ -519,7 +523,7 @@ function Workspace({ onExit }) {
           <button>
             <CreditCard size={18} /> Start plan
           </button>
-          <button onClick={onExit}>← Back to home</button>
+          <button onClick={onExit}><ArrowLeft size={16} /> Back to home</button>
         </div>
       </aside>
       <main className="tw-dash">

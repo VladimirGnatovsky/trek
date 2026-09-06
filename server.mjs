@@ -1,14 +1,16 @@
 import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "dist");
 const port = Number(process.env.PORT || 8080);
 const limits = new Map();
 const receiptLimits = new Map();
+const statementLimits = new Map();
+const fxCache = new Map();
 let modelCache = { name: "", expiresAt: 0 };
 const MIME = {
   ".css": "text/css; charset=utf-8",
@@ -380,6 +382,172 @@ const receiptScan = async (req, res) => {
   }
 };
 
+const STATEMENT_CATEGORIES = new Set(["Groceries", "Transport", "Subscriptions", "Coffee", "Shopping", "Housing", "Health", "Fun", "Other"]);
+
+const statementCategory = (value = "", supplied = "") => {
+  if (STATEMENT_CATEGORIES.has(supplied)) return supplied;
+  const text = String(value).toLowerCase();
+  const rules = [
+    ["Groceries", /silpo|сільпо|атб|novus|varus|metro|auchan|ашан|billa|lidl|biedronka|zabka|żabka|carrefour|grocery|supermarket|market/],
+    ["Transport", /uber|uklon|bolt|taxi|таксі|uber|wog|okko|shell|orlen|fuel|палив|parking|паркінг|metro|tram|bus|train|railway|uz booking/],
+    ["Subscriptions", /netflix|spotify|youtube|apple\.com\/bill|google|icloud|subscription|підписк|подписк/],
+    ["Coffee", /coffee|cafe|café|кав|starbucks|кофе/],
+    ["Housing", /rent|оренд|аренд|utility|utilities|комунал|electric|water|gas|internet|czynsz/],
+    ["Health", /pharmacy|аптек|medic|doctor|clinic|health|лікар|zdrow/],
+    ["Fun", /cinema|кіно|театр|game|steam|concert|restaurant|ресторан|bar\b/],
+    ["Shopping", /amazon|allegro|rozetka|магазин|shop|store|mall|zara|h&m|ikea/],
+  ];
+  return rules.find(([, pattern]) => pattern.test(text))?.[0] || "Other";
+};
+
+const parseCsvRows = (text) => {
+  const firstLine = String(text).replace(/^\ufeff/, "").split(/\r?\n/, 1)[0] || "";
+  const delimiter = [",", ";", "\t"].sort((a, b) => firstLine.split(b).length - firstLine.split(a).length)[0];
+  const rows = []; let row = []; let cell = ""; let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]; const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') { cell += '"'; index += 1; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === delimiter && !quoted) { row.push(cell.trim()); cell = ""; }
+    else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim()); if (row.some(Boolean)) rows.push(row); row = []; cell = "";
+    } else cell += char;
+  }
+  row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
+  return rows;
+};
+
+const normalizeHeader = (value) => String(value || "").toLowerCase().replace(/[^a-zа-яіїє0-9]+/giu, " ").trim();
+const parseStatementNumber = (value) => {
+  let text = String(value ?? "").replace(/[\s\u00a0₴€$zł]/gi, "").replace(/[−–—]/g, "-");
+  if (text.includes(",") && text.includes(".")) text = text.lastIndexOf(",") > text.lastIndexOf(".") ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
+  else if (text.includes(",")) text = text.replace(",", ".");
+  const number = Number(text.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(number) ? number : NaN;
+};
+const parseStatementDate = (value) => {
+  const text = String(value || "").trim();
+  let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (match) return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  match = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (match) return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+  return null;
+};
+const headerIndex = (headers, exact, contains = []) => {
+  const direct = exact.map((name) => headers.indexOf(name)).find((index) => index >= 0);
+  if (direct !== undefined) return direct;
+  return headers.findIndex((header) => contains.some((part) => header.includes(part)));
+};
+
+const parseCsvStatement = (text) => {
+  const rows = parseCsvRows(String(text).replace(/^\ufeff/, ""));
+  if (rows.length < 2) throw new Error("This CSV file has no transaction rows.");
+  const headers = rows[0].map(normalizeHeader);
+  const dateAt = headerIndex(headers, ["date", "occurred on", "transaction date", "date and time"], ["date and time", "дата"]);
+  const merchantAt = headerIndex(headers, ["merchant", "description", "name", "details"], ["description", "merchant", "опис"]);
+  const operationAmountAt = headerIndex(headers, ["operation amount", "amount", "value"], ["operation amount", "сума операції"]);
+  const cardAmountAt = headers.findIndex((header) => header.includes("card currency amount"));
+  const amountAt = operationAmountAt >= 0 ? operationAmountAt : cardAmountAt;
+  const currencyAt = headerIndex(headers, ["operation currency", "currency"], ["operation currency", "валюта операції"]);
+  const typeAt = headerIndex(headers, ["type", "entry type", "direction"]);
+  const categoryAt = headerIndex(headers, ["category"]);
+  const mccAt = headerIndex(headers, ["mcc"]);
+  if ([dateAt, merchantAt, amountAt].some((index) => index < 0)) throw new Error("CSV needs date, description and amount columns.");
+  const headerCurrency = (rows[0][amountAt]?.match(/\(([A-Z]{3})\)/)?.[1] || "").toUpperCase();
+  return rows.slice(1).map((row) => {
+    const rawAmount = parseStatementNumber(row[amountAt]);
+    const date = parseStatementDate(row[dateAt]);
+    const merchant = String(row[merchantAt] || "Imported transaction").trim().slice(0, 120);
+    const statedType = String(typeAt >= 0 ? row[typeAt] : "").toLowerCase();
+    const type = /income|credit|deposit|top.?up|дохід|поповнен/.test(statedType) ? "income" : /expense|debit|витрат/.test(statedType) ? "expense" : rawAmount >= 0 ? "income" : "expense";
+    const currency = String(currencyAt >= 0 ? row[currencyAt] : headerCurrency || "").trim().toUpperCase();
+    return { date, merchant, amount: Math.abs(rawAmount), type, currency, category: type === "income" ? "Other" : statementCategory(`${merchant} ${mccAt >= 0 ? row[mccAt] : ""}`, categoryAt >= 0 ? row[categoryAt] : "") };
+  }).filter((row) => row.date && Number.isFinite(row.amount) && row.amount > 0 && /^[A-Z]{3}$/.test(row.currency));
+};
+
+const parsePdfStatement = async (data) => {
+  if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("PDF statement import is not configured yet."), { status: 503 });
+  const model = await resolveGeminiModel();
+  const prompt = `Extract only transaction rows from this bank statement. Ignore account holder identity, address, card number, IBAN, tax IDs, signatures and summary totals. Return JSON with one field named transactions. Each transaction must contain: date (YYYY-MM-DD), merchant (short description), amount (positive number), type (expense or income), currency (ISO 4217 code), category (exactly one of Groceries, Transport, Subscriptions, Coffee, Shopping, Housing, Health, Fun, Other). Preserve every transaction exactly once. Negative/debit rows are expenses; positive/credit/top-up rows are income. Do not invent transactions or exchange rates.`;
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: "POST", headers: geminiHeaders(), body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "application/pdf", data } }] }],
+      generationConfig: { maxOutputTokens: 8_000, responseMimeType: "application/json" },
+    }),
+  });
+  if (!response.ok) {
+    const providerError = await response.json().catch(() => ({}));
+    console.error("Gemini statement import failed", response.status, providerError?.error?.status || "unknown");
+    throw Object.assign(new Error(response.status === 429 ? "Statement analysis quota is temporarily exhausted." : "Gemini could not read this PDF statement."), { status: 502 });
+  }
+  const result = await response.json();
+  const text = result.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim() || "";
+  const parsed = JSON.parse(text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim());
+  return (Array.isArray(parsed.transactions) ? parsed.transactions : []).map((row) => ({
+    date: parseStatementDate(row.date), merchant: String(row.merchant || "Imported transaction").trim().slice(0, 120),
+    amount: Math.abs(Number(row.amount)), type: row.type === "income" ? "income" : "expense",
+    currency: String(row.currency || "").toUpperCase(), category: row.type === "income" ? "Other" : statementCategory(row.merchant, row.category),
+  })).filter((row) => row.date && row.amount > 0 && /^[A-Z]{3}$/.test(row.currency));
+};
+
+const nbuRateToUah = async (currency, date) => {
+  if (currency === "UAH") return { rate: 1, date };
+  const cacheKey = `${currency}:${date}`;
+  if (fxCache.has(cacheKey)) return fxCache.get(cacheKey);
+  for (let offset = 0; offset < 8; offset += 1) {
+    const requested = new Date(`${date}T12:00:00Z`); requested.setUTCDate(requested.getUTCDate() - offset);
+    const key = requested.toISOString().slice(0, 10).replace(/-/g, "");
+    const response = await fetch(`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchangenew?json&valcode=${encodeURIComponent(currency)}&date=${key}`);
+    if (!response.ok) continue;
+    const rows = await response.json().catch(() => []);
+    const row = rows.find((item) => item.cc === currency && Number(item.rate) > 0);
+    if (row) {
+      const result = { rate: Number(row.rate), date: requested.toISOString().slice(0, 10) };
+      fxCache.set(cacheKey, result); return result;
+    }
+  }
+  throw new Error(`Official NBU rate for ${currency} on ${date} is unavailable.`);
+};
+
+const statementImport = async (req, res) => {
+  try {
+    const user = await getUser(req.headers.authorization);
+    if (!user) return sendJson(res, 401, { error: "Please sign in before importing a statement." });
+    const subscription = await supabaseAdmin(`subscriptions?user_id=eq.${encodeURIComponent(user.id)}&select=plan,status`);
+    if (subscription?.[0]?.plan !== "Lifetime" || subscription?.[0]?.status !== "active") return sendJson(res, 403, { error: "Bank statement import is included with Lifetime." });
+    const now = Date.now(); const recent = (statementLimits.get(user.id) || []).filter((time) => now - time < 10 * 60 * 1000);
+    if (recent.length >= 8) return sendJson(res, 429, { error: "Statement import limit reached. Try again in a few minutes." });
+    recent.push(now); statementLimits.set(user.id, recent);
+    const { file = {}, targetCurrency = "EUR" } = await getBody(req, 12_000_000);
+    const name = String(file.name || "statement").slice(0, 160);
+    const mimeType = String(file.mimeType || "").toLowerCase(); const data = String(file.data || "");
+    if (!data || data.length > 11_000_000 || !["text/csv", "application/csv", "application/vnd.ms-excel", "application/pdf"].includes(mimeType)) return sendJson(res, 400, { error: "Choose a CSV or PDF statement under 8 MB." });
+    if (!["EUR", "USD", "PLN", "UAH"].includes(targetCurrency)) return sendJson(res, 400, { error: "Unsupported display currency." });
+    const decoded = Buffer.from(data, "base64");
+    const parsedRows = mimeType === "application/pdf" ? await parsePdfStatement(data) : parseCsvStatement(decoded.toString("utf8"));
+    if (!parsedRows.length) return sendJson(res, 400, { error: "No transaction rows were found in this statement." });
+    if (parsedRows.length > 500) return sendJson(res, 400, { error: "Import at most 500 transactions at a time." });
+    const fileHash = createHash("sha256").update(decoded).digest("hex");
+    const converted = [];
+    for (let index = 0; index < parsedRows.length; index += 1) {
+      const row = parsedRows[index];
+      if (!["EUR", "USD", "PLN", "UAH"].includes(row.currency)) throw new Error(`Currency ${row.currency} is not supported yet.`);
+      const source = await nbuRateToUah(row.currency, row.date); const target = await nbuRateToUah(targetCurrency, row.date);
+      const rate = source.rate / target.rate;
+      converted.push({ ...row, originalAmount: row.amount, originalCurrency: row.currency, amount: Math.round(row.amount * rate * 100) / 100,
+        exchangeRate: rate, exchangeRateDate: source.date < target.date ? source.date : target.date,
+        importHash: createHash("sha256").update(`${fileHash}:${index}:${row.date}:${row.merchant}:${row.amount}:${row.currency}`).digest("hex"),
+      });
+    }
+    const months = [...new Set(converted.map((row) => `${row.date.slice(0, 7)}-01`))].sort();
+    return sendJson(res, 200, { statement: { fileName: name, targetCurrency, months, transactions: converted } });
+  } catch (error) {
+    console.error("Statement import error", error.message);
+    return sendJson(res, error.status || 400, { error: error instanceof SyntaxError ? "The statement response could not be parsed. Try CSV or a clearer PDF." : error.message || "The statement could not be processed." });
+  }
+};
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) return sendJson(res, 204, {});
@@ -403,6 +571,10 @@ const server = createServer(async (req, res) => {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return receiptScan(req, res);
   }
+  if (url.pathname === "/api/import-statement") {
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+    return statementImport(req, res);
+  }
   if (url.pathname === "/env.js") {
     const config = {
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "",
@@ -421,4 +593,8 @@ const server = createServer(async (req, res) => {
   createReadStream(file).pipe(res);
 });
 
-server.listen(port, "0.0.0.0", () => console.log(`Trek running on port ${port}`));
+export { parseCsvStatement, parseStatementDate, statementCategory };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  server.listen(port, "0.0.0.0", () => console.log(`Trek running on port ${port}`));
+}

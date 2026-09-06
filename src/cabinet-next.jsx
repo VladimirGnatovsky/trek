@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, BarChart3, Bell, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
+  AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
-  FileUp, HeartPulse, Home, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil,
+  FileText, FileUp, HeartPulse, Home, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil,
   Plus, ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Sparkles, Target,
   Trash2, Upload, UserRound, Wallet, X, Car,
 } from "lucide-react";
@@ -201,25 +201,18 @@ function TransactionsPage({ items, currency, hidden, canImport, onAdd, onEdit, o
   const [category, setCategory] = useState("All");
   const [kind, setKind] = useState("All");
   const [selected, setSelected] = useState(new Set());
-  const fileRef = useRef(null);
   const filtered = items.filter((item) => {
     const text = `${item.merchant} ${item.category} ${item.note || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
     return text.includes(query.toLowerCase()) && (category === "All" || item.category === category) && (kind === "All" || item.type === kind);
   });
   const toggle = (id) => setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
-  const importFile = async (event) => {
-    const file = event.target.files?.[0];
-    if (file) await onImport(file);
-    event.target.value = "";
-  };
   return <section className="tc-page">
     <div className="tc-page-head"><div><span>YOUR RECORDS</span><h2>Transactions</h2><p>{filtered.length} visible entries · edit, filter or review your records.</p></div><button className="tc-action" onClick={onAdd}><Plus size={17} /> Add transaction</button></div>
     <section className="tc-panel tn-toolbar">
       <label className="tn-search"><Search size={16} /><input placeholder="Search merchant, note or tag" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <select value={category} onChange={(event) => setCategory(event.target.value)}><option>All</option>{CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select>
       <select value={kind} onChange={(event) => setKind(event.target.value)}><option>All</option><option value="expense">Expenses</option><option value="income">Income</option></select>
-      <button onClick={() => canImport ? fileRef.current?.click() : onImport(null)}><FileUp size={16} /> Import CSV{!canImport && " · Plus"}</button>
-      <input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={importFile} />
+      <button onClick={onImport}><FileUp size={16} /> Import statement{!canImport && " · Lifetime"}</button>
       {selected.size > 0 && <button className="tn-danger" onClick={async () => { await onDeleteMany([...selected]); setSelected(new Set()); }}><Trash2 size={15} /> Delete {selected.size}</button>}
     </section>
     <section className="tc-panel tn-transaction-table">{filtered.length ? filtered.map((item) => <TransactionRow key={item.id} item={item} currency={currency} hidden={hidden} checked={selected.has(item.id)} onCheck={toggle} onEdit={onEdit} onDelete={onDelete} />) : <Empty icon={ReceiptText} title="No matching transactions" copy="Change the filters or log a new entry." />}</section>
@@ -313,11 +306,37 @@ function CoachModal({ onClose, onAsk }) {
   return <Modal onClose={onClose} wide><span className="tc-kicker">TREK COACH · AI</span><h2>Ask about your money pace.</h2><div className="tn-prompt-chips">{prompts.map((prompt) => <button key={prompt} onClick={() => setQuestion(prompt)}>{prompt}</button>)}</div><form className="tc-form" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setError(""); setAnswer(""); try { setAnswer(await onAsk(question)); } catch (requestError) { setError(requestError.message); } finally { setBusy(false); } }}><label>Your question<textarea maxLength="600" value={question} onChange={(event) => setQuestion(event.target.value)} /></label><button className="tc-action" disabled={busy}><Sparkles size={16} /> {busy ? "Thinking…" : "Ask the coach"}</button></form>{error && <p className="tc-form-error">{error}</p>}{answer && <article className="tc-coach-answer">{answer}</article>}</Modal>;
 }
 
+const fileAsBase64 = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error("The statement file could not be read."));
+  reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+  reader.readAsDataURL(file);
+});
+
+function StatementImportModal({ currency, onClose, onAnalyze, onConfirm }) {
+  const [file, setFile] = useState(null); const [statement, setStatement] = useState(null);
+  const [selected, setSelected] = useState(new Set()); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const analyze = async () => {
+    if (!file) return setError("Choose a CSV or PDF bank statement.");
+    if (file.size > 8 * 1024 * 1024) return setError("Choose a statement under 8 MB.");
+    setBusy(true); setError("");
+    try { const next = await onAnalyze(file); setStatement(next); setSelected(new Set(next.transactions.map((_, index) => index))); }
+    catch (requestError) { setError(requestError.message || "The statement could not be analyzed."); }
+    finally { setBusy(false); }
+  };
+  const updateRow = (index, change) => setStatement((current) => ({ ...current, transactions: current.transactions.map((row, rowIndex) => rowIndex === index ? { ...row, ...change } : row) }));
+  return <Modal onClose={onClose} wide><span className="tc-kicker">LIFETIME · SMART IMPORT</span><h2>Import a bank statement.</h2><p className="tc-modal-copy">Upload CSV or PDF, review the detected categories, then add the selected rows. Foreign amounts use the official NBU rate for each transaction date.</p>
+    {!statement ? <div className="tn-import-start"><label><FileText size={22} /><span><b>{file?.name || "Choose a statement"}</b><small>CSV or PDF · up to 8 MB</small></span><input type="file" accept=".csv,.pdf,text/csv,application/pdf" onChange={(event) => { setFile(event.target.files?.[0] || null); setError(""); }} /></label><button className="tc-action" disabled={busy || !file} onClick={analyze}>{busy ? <LoaderCircle className="tn-spin" size={17} /> : <Banknote size={17} />} {busy ? "Analyzing…" : "Analyze statement"}</button><small className="tn-import-privacy">CSV is parsed deterministically. PDF content is processed by the configured Gemini service to extract transaction rows.</small></div>
+      : <><div className="tn-import-summary"><div><b>{statement.transactions.length}</b><span>transactions found</span></div><div><b>{statement.months.map((item) => monthLabel(item)).join(", ")}</b><span>detected period</span></div><div><b>{currency}</b><span>converted currency</span></div></div><div className="tn-import-table"><header><span /><span>Date and merchant</span><span>Category</span><span>Original</span><span>Import amount</span></header>{statement.transactions.map((row, index) => <div key={row.importHash}><input type="checkbox" checked={selected.has(index)} onChange={() => setSelected((current) => { const next = new Set(current); next.has(index) ? next.delete(index) : next.add(index); return next; })} /><span><b>{row.merchant}</b><small>{row.date} · {row.type}</small></span><select value={row.category} disabled={row.type === "income"} onChange={(event) => updateRow(index, { category: event.target.value })}>{CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select><span>{row.originalAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} {row.originalCurrency}</span><strong>{money(row.amount, currency)}</strong></div>)}</div><div className="tn-import-actions"><button onClick={() => { setStatement(null); setFile(null); }}>Choose another file</button><button className="tc-action" disabled={busy || selected.size === 0} onClick={async () => { setBusy(true); setError(""); try { await onConfirm(statement.transactions.filter((_, index) => selected.has(index)), statement.fileName, statement.months); onClose(); } catch (requestError) { setError(requestError.message || "The transactions could not be saved."); setBusy(false); } }}>{busy ? "Importing…" : `Import ${selected.size} selected`}</button></div></>}
+    {error && <p className="tc-form-error">{error}</p>}
+  </Modal>;
+}
+
 function PricingModal({ plan, user, onClose, onCheckout, nativeApp = false }) {
   const choices = [
     ["Start", "Free", ["Manual tracking", "Receipt recognition", "One goal", "Basic monthly plan"]],
-    ["Plus", "€6 / month", ["Recurring calendar", "Unlimited goals", "CSV import and export", "Advanced analytics", "Trek Coach"]],
-    ["Lifetime", "€149 once", ["Every Plus feature", "Lifetime access", "Priority new features"]],
+    ["Plus", "€6 / month", ["Recurring calendar", "Unlimited goals", "Data export", "Advanced analytics", "Trek Coach"]],
+    ["Lifetime", "€149 once", ["Every Plus feature", "CSV and PDF bank import", "Historical NBU conversion", "Lifetime access"]],
   ];
   return <Modal onClose={onClose} wide><span className="tc-kicker">MEMBERSHIP</span><h2>Choose your Trek mode.</h2><p className="tc-modal-copy">{nativeApp ? "Your existing Trek membership syncs automatically across web and mobile. Purchases are not offered inside the iOS app." : "Start with the essentials, or unlock deeper planning, automation and coaching."}</p><div className="tc-prices">{choices.map(([name, price, features]) => <article key={name} className={plan === name ? "selected" : ""}><span>{name}</span><h3>{price}</h3><ul>{features.map((feature) => <li key={feature}><Check size={15} /> {feature}</li>)}</ul><button disabled={nativeApp || plan === name || name === "Start"} onClick={() => onCheckout(name, user)}>{plan === name ? "Current plan" : nativeApp ? "Synced from your account" : name === "Start" ? "Included" : "Continue to payment"}</button></article>)}</div></Modal>;
 }
@@ -333,12 +352,6 @@ function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, w
     <section className="tc-panel tn-dashboard-settings"><span>DASHBOARD WIDGETS</span><h3>Choose what matters</h3><p>Keep the overview focused on the information you use most.</p>{[["pace","Spending pace"],["signal","Trek signal"],["transactions","Recent transactions"],["goals","Top goal"]].map(([id,label]) => <label key={id}><input type="checkbox" checked={widgets.includes(id)} onChange={() => onWidgets(widgets.includes(id) ? widgets.filter((item) => item !== id) : [...widgets, id])} /> {label}</label>)}</section>
   </div></section>;
 }
-
-const parseCsv = (text) => {
-  const rows = []; let row = []; let cell = ""; let quoted = false;
-  for (let index = 0; index < text.length; index += 1) { const char = text[index]; const next = text[index + 1]; if (char === '"' && quoted && next === '"') { cell += '"'; index += 1; } else if (char === '"') quoted = !quoted; else if (char === "," && !quoted) { row.push(cell); cell = ""; } else if ((char === "\n" || char === "\r") && !quoted) { if (char === "\r" && next === "\n") index += 1; row.push(cell); if (row.some(Boolean)) rows.push(row); row = []; cell = ""; } else cell += char; }
-  row.push(cell); if (row.some(Boolean)) rows.push(row); return rows;
-};
 
 export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nativeApp = false }) {
   const [view, setView] = useState("overview"); const [month, setMonth] = useState(monthKey()); const [modal, setModal] = useState(null); const [editing, setEditing] = useState(null);
@@ -415,8 +428,6 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   const saveTransaction = async (form) => { const payload = { user_id: user.id, merchant: form.merchant.trim(), category: form.type === "income" ? "Other" : form.category, entry_type: form.type, amount: form.amount, occurred_on: form.date, note: form.note || "", tags: form.tags || [], needs_review: Boolean(form.needsReview) }; const result = form.id ? await supabase.from("transactions").update(payload).eq("id", form.id).select().single() : await supabase.from("transactions").insert(payload).select().single(); if (result.error) return setError(result.error); const next = fromTransaction(result.data); setTransactions((current) => form.id ? current.map((item) => item.id === form.id ? next : item) : [next, ...current]); return true; };
   const removeTransaction = async (id) => { const result = await supabase.from("transactions").delete().eq("id", id); if (result.error) return setError(result.error); setTransactions((current) => current.filter((item) => item.id !== id)); return true; };
   const removeMany = async (ids) => { const result = await supabase.from("transactions").delete().in("id", ids); if (result.error) return setError(result.error); setTransactions((current) => current.filter((item) => !ids.includes(item.id))); return true; };
-  const importCsv = async (file) => { if (!plus || !file) { setModal("pricing"); return; } const rows = parseCsv(await file.text()); if (rows.length < 2) return setDataError("The CSV file has no data rows."); const headers = rows[0].map((header) => header.trim().toLowerCase()); const at = (...names) => names.map((name) => headers.indexOf(name)).find((index) => index >= 0); const dateIndex = at("date", "occurred_on"); const merchantIndex = at("merchant", "description", "name"); const amountIndex = at("amount", "value"); const categoryIndex = at("category"); const typeIndex = at("type", "entry_type"); if ([dateIndex, merchantIndex, amountIndex].some((index) => index === undefined)) return setDataError("CSV needs Date, Merchant (or Description), and Amount columns."); const payload = rows.slice(1).map((row) => { const raw = Number(String(row[amountIndex]).replace(/[^0-9,.-]/g, "").replace(",", ".")); return { user_id: user.id, occurred_on: row[dateIndex], merchant: row[merchantIndex] || "Imported", amount: Math.abs(raw), entry_type: row[typeIndex] || (raw < 0 ? "expense" : "income"), category: CATEGORIES.includes(row[categoryIndex]) ? row[categoryIndex] : "Other", note: "Imported from CSV", tags: ["imported"], needs_review: true }; }).filter((row) => row.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.occurred_on)); if (!payload.length) return setDataError("No valid rows found. Dates must use YYYY-MM-DD."); const result = await supabase.from("transactions").insert(payload).select(); if (result.error) return setError(result.error); setTransactions((current) => [...result.data.map(fromTransaction), ...current]); setDataError(""); };
-
   const createGoal = async (form) => { const result = await supabase.from("goals").insert({ user_id: user.id, name: form.name, target_amount: Number(form.target), deadline: form.deadline || null, icon: form.icon, color: form.color }).select().single(); if (result.error) return setError(result.error); setGoals((current) => [...current, fromGoal(result.data)]); return true; };
   const contribute = async (goal, amount) => { if (!(amount > 0)) return; const saved = Math.min(goal.target, goal.saved + amount); const status = saved >= goal.target ? "completed" : "active"; const result = await supabase.from("goals").update({ saved_amount: saved, status, updated_at: new Date().toISOString() }).eq("id", goal.id); if (result.error) return setError(result.error); setGoals((current) => current.map((item) => item.id === goal.id ? { ...item, saved, status } : item)); };
   const archiveGoal = async (id) => { const result = await supabase.from("goals").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id); if (result.error) return setError(result.error); setGoals((current) => current.filter((item) => item.id !== id)); };
@@ -427,6 +438,26 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   const uploadAvatar = async (file) => { if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) throw new Error("Choose a PNG, JPG or WebP image under 2 MB."); const path = `${user.id}/${Date.now()}.${file.name.split(".").pop()?.toLowerCase() || "jpg"}`; const upload = await supabase.storage.from("trek-avatars").upload(path, file, { contentType: file.type }); if (upload.error) throw upload.error; const profile = await supabase.from("profiles").update({ avatar_path: path, updated_at: new Date().toISOString() }).eq("id", user.id); if (profile.error) throw profile.error; const signed = await supabase.storage.from("trek-avatars").createSignedUrl(path, 3600); if (signed.error) throw signed.error; setAvatarUrl(signed.data.signedUrl); };
   const updateProfile = async (name) => { const next = name.trim() || profileName; const result = await supabase.from("profiles").update({ full_name: next, updated_at: new Date().toISOString() }).eq("id", user.id); if (result.error) return setError(result.error); await onProfileUpdate(next); setProfileName(next); return true; };
   const authenticatedFetch = async (url, options = {}) => { const session = await supabase.auth.getSession(); return fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token || ""}`, ...(options.headers || {}) } }); };
+  const analyzeStatement = async (file) => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const mimeType = extension === "pdf" ? "application/pdf" : "text/csv";
+    const response = await authenticatedFetch("/api/import-statement", { method: "POST", body: JSON.stringify({ file: { name: file.name, mimeType, data: await fileAsBase64(file) }, targetCurrency: currency }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Statement analysis is unavailable.");
+    return body.statement;
+  };
+  const confirmStatement = async (rows, fileName, months) => {
+    const source = fileName.toLowerCase().endsWith(".pdf") ? "PDF statement" : "CSV statement";
+    const payload = rows.map((row) => ({ user_id: user.id, merchant: row.merchant, category: row.type === "income" ? "Other" : row.category, entry_type: row.type, amount: row.amount, occurred_on: row.date,
+      note: row.originalCurrency === currency ? `Imported from ${source}` : `Imported from ${source} · ${row.originalAmount} ${row.originalCurrency} at official NBU rate`, tags: ["imported", "bank-statement"], needs_review: false,
+      original_amount: row.originalAmount, original_currency: row.originalCurrency, exchange_rate: row.exchangeRate, exchange_rate_date: row.exchangeRateDate, import_hash: row.importHash, import_source: source }));
+    const result = await supabase.from("transactions").upsert(payload, { onConflict: "user_id,import_hash", ignoreDuplicates: true }).select();
+    if (result.error) throw new Error(`${result.error.message}. Run the latest supabase/schema.sql migration first.`);
+    const imported = (result.data || []).map(fromTransaction);
+    setTransactions((current) => [...imported, ...current]);
+    if (months?.length) setMonth(months[months.length - 1]);
+    setDataError(imported.length < rows.length ? `${imported.length} imported; ${rows.length - imported.length} duplicate rows skipped.` : "");
+  };
   const scanReceipt = async (file) => {
     const image = await prepareReceiptImage(file);
     const response = await authenticatedFetch("/api/receipt", { method: "POST", body: JSON.stringify({ image }) });
@@ -442,7 +473,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   const changeView = (id) => lockedView(id) ? setModal("pricing") : setView(id);
   let page;
   if (view === "overview") page = <Overview transactions={monthTransactions} metrics={metrics} budget={budget} goals={goals} currency={currency} hidden={privacy} categoryBudgets={categoryBudgets} widgets={widgets} onAdd={() => { setEditing(null); setModal("entry"); }} onView={changeView} onCoach={() => plus ? setModal("coach") : setModal("pricing")} />;
-  else if (view === "transactions") page = <TransactionsPage items={monthTransactions} currency={currency} hidden={privacy} canImport={plus} onAdd={() => { setEditing(null); setModal("entry"); }} onEdit={(item) => { setEditing(item); setModal("entry"); }} onDelete={removeTransaction} onDeleteMany={removeMany} onImport={importCsv} />;
+  else if (view === "transactions") page = <TransactionsPage items={monthTransactions} currency={currency} hidden={privacy} canImport={plan === "Lifetime"} onAdd={() => { setEditing(null); setModal("entry"); }} onEdit={(item) => { setEditing(item); setModal("entry"); }} onDelete={removeTransaction} onDeleteMany={removeMany} onImport={() => setModal(plan === "Lifetime" ? "statement" : "pricing")} />;
   else if (view === "plan") page = <PlanPage budget={budget} categoryBudgets={categoryBudgets} metrics={metrics} currency={currency} hidden={privacy} onBudgetSave={saveBudget} onCategorySave={saveCategory} onCopyPrevious={copyPrevious} />;
   else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
   else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
@@ -450,13 +481,14 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} plan={plan} privacy={privacy} widgets={widgets} canExport={plus} transactions={transactions} goals={goals} recurring={recurring} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} nativeApp={nativeApp} />;
 
   if (loading) return <div className="tw-loading">Loading your money space…</div>;
-  return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i>↗</i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button>{!nativeApp && <button onClick={onExit}>← Back to home</button>}<button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
-    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true">↗</span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}{mobileNav && <div className="tc-mobile-menu">{NAV.map(([id, label, Icon]) => <button key={id} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={16} /> {label}</button>)}<button onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={16} /> Settings</button></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
+  return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i><ArrowUpRight size={17} /></i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button>{!nativeApp && <button onClick={onExit}><ArrowLeft size={16} /> Back to home</button>}<button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
+    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}{mobileNav && <div className="tc-mobile-menu">{NAV.map(([id, label, Icon]) => <button key={id} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={16} /> {label}</button>)}<button onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={16} /> Settings</button></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
     {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>Overview</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>Activity</span></button><button className="tm-add" onClick={() => { setEditing(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>Plan</span></button><button className={mobileNav || ["recurring", "goals", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>More</span></button></nav>}
     {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : null} month={month} onClose={() => setModal(null)} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "goal" && <GoalModal onClose={() => setModal(null)} onSave={createGoal} />}
     {modal === "recurring" && <RecurringModal onClose={() => setModal(null)} onSave={createRecurring} />}
     {modal === "coach" && <CoachModal onClose={() => setModal(null)} onAsk={askCoach} />}
+    {modal === "statement" && <StatementImportModal currency={currency} onClose={() => setModal(null)} onAnalyze={analyzeStatement} onConfirm={confirmStatement} />}
     {modal === "pricing" && <PricingModal plan={plan} user={user} onClose={() => setModal(null)} onCheckout={checkout} nativeApp={nativeApp} />}
   </div>;
 }
