@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
@@ -38,7 +39,7 @@ const monthEnd = (key) => {
 const monthLabel = (key) => localDate(key).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 const inMonth = (item, key) => item.date >= key && item.date <= monthEnd(key);
 const money = (value, currency, hidden = false) => hidden
-  ? "••••"
+  ? "*****"
   : `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)} ${SYMBOLS[currency] || currency}`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const apiUrl = (path) => {
@@ -139,17 +140,41 @@ function Score({ value }) {
   </div>;
 }
 
+const smoothPath = (points) => points.reduce((path, point, index) => {
+  if (index === 0) return `M ${point.x} ${point.y}`;
+  const previous = points[index - 1];
+  const middle = (previous.x + point.x) / 2;
+  return `${path} C ${middle} ${previous.y}, ${middle} ${point.y}, ${point.x} ${point.y}`;
+}, "");
+
 function Bars({ values, currency, hidden }) {
+  const [active, setActive] = useState(Math.max(0, values.length - 1));
   const max = Math.max(...values.map((item) => item.amount), 1);
-  return <div className="tc-chart tn-bars">
-    {values.map((item, index) => <div className="tc-bar" key={item.key || item.label} title={`${item.label}: ${money(item.amount, currency, hidden)}`}>
+  const points = values.map((item, index) => ({
+    x: values.length === 1 ? 350 : 24 + index * (652 / Math.max(1, values.length - 1)),
+    y: 135 - (item.amount / max) * 112,
+  }));
+  const selected = values[active];
+  const tooltipLeft = clamp(((active + 0.5) / Math.max(1, values.length)) * 100, 13, 87);
+  return <div className="tc-chart tn-bars" onMouseLeave={() => setActive(Math.max(0, values.length - 1))}>
+    <svg className="tn-trend-line" viewBox="0 0 700 150" preserveAspectRatio="none" aria-hidden="true">
+      <path className="tn-trend-area" d={`${smoothPath(points)} L ${points[points.length - 1]?.x || 676} 150 L ${points[0]?.x || 24} 150 Z`} />
+      <path className="tn-trend-path" d={smoothPath(points)} />
+      {points.map((point, index) => <circle key={index} className={index === active ? "active" : ""} cx={point.x} cy={point.y} r={index === active ? 5 : 3} />)}
+    </svg>
+    {selected && <output className="tn-chart-tooltip" style={{ left: `${tooltipLeft}%` }}>
+      <small>{selected.key ? localDate(selected.key).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : selected.label}</small>
+      <strong>{money(selected.amount, currency, hidden)}</strong>
+    </output>}
+    {values.map((item, index) => <button type="button" className={`tc-bar${index === active ? " selected" : ""}`} key={item.key || item.label} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)} aria-label={`${item.label}: ${money(item.amount, currency, hidden)}`}>
       <i className={index === values.length - 1 ? "active" : ""} style={{ height: `${Math.max(5, item.amount / max * 100)}%` }} />
       <small>{item.label}</small>
-    </div>)}
+    </button>)}
   </div>;
 }
 
-function Donut({ rows, total }) {
+function Donut({ rows, total, currency, hidden }) {
+  const [active, setActive] = useState(0);
   let cursor = 0;
   const stops = rows.map((row, index) => {
     const end = cursor + (row.amount / Math.max(total, 1)) * 100;
@@ -157,7 +182,17 @@ function Donut({ rows, total }) {
     cursor = end;
     return stop;
   });
-  return <div className="tn-donut" style={{ background: rows.length ? `conic-gradient(${stops.join(",")})` : "#263038" }}><span>{Math.round(total)}</span></div>;
+  const selected = rows[active] || rows[0];
+  return <div className="tn-donut-wrap">
+    <div className="tn-donut" style={{ background: rows.length ? `conic-gradient(${stops.join(",")})` : "#263038" }}>
+      <span><b>{selected?.category || "Total"}</b><small>{money(selected?.amount ?? total, currency, hidden)}</small></span>
+    </div>
+    <div className="tn-donut-legend">
+      {rows.slice(0, 5).map((row, index) => <button type="button" className={index === active ? "active" : ""} key={row.category} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}>
+        <i style={{ background: COLORS[index % COLORS.length] }} />{row.category}
+      </button>)}
+    </div>
+  </div>;
 }
 
 function Overview({ transactions, metrics, budget, goals, currency, hidden, categoryBudgets, widgets, onAdd, onView, onCoach }) {
@@ -261,7 +296,7 @@ function AnalyticsPage({ metrics, previousMetrics, categoryBudgets, currency, hi
   return <section className="tc-page">
     <div className="tc-page-head"><div><span>THE BIGGER PICTURE</span><h2>Analytics</h2><p>Every chart is calculated from the selected month’s records.</p></div></div>
     <div className="tc-kpis"><div><span>MONTH VS PREVIOUS</span><b>{comparison > 0 ? "+" : ""}{Math.round(comparison)}%</b><small>{comparison > 0 ? "more" : "less"} spending</small></div><div><span>SAVINGS RATE</span><b>{metrics.earned > 0 ? Math.round((metrics.earned - metrics.spending) / metrics.earned * 100) : 0}%</b><small>income minus expenses</small></div><div><span>NO-SPEND DAYS</span><b>{metrics.dailySeries.filter((item) => item.amount === 0).length}</b><small>within the last 7 days</small></div></div>
-    <div className="tc-grid analytics"><section className="tc-panel tc-spend"><header><div><span>DAILY RHYTHM</span><h3>{money(metrics.daily, currency, hidden)} average</h3></div></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} /></section><section className="tc-panel tn-donut-panel"><span>WHERE IT WENT</span><Donut rows={metrics.byCategory} total={metrics.spending} /><h3>{money(metrics.spending, currency, hidden)}</h3></section>
+    <div className="tc-grid analytics"><section className="tc-panel tc-spend"><header><div><span>DAILY RHYTHM</span><h3>{money(metrics.daily, currency, hidden)} average</h3></div></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} /></section><section className="tc-panel tn-donut-panel"><span>WHERE IT WENT</span><Donut rows={metrics.byCategory} total={metrics.spending} currency={currency} hidden={hidden} /><h3>{money(metrics.spending, currency, hidden)}</h3></section>
       <section className="tc-panel tc-breakdown"><header><span>BUDGET VS ACTUAL</span></header>{metrics.byCategory.length ? metrics.byCategory.map((row, index) => { const planned = Number(categoryBudgets[row.category] || 0); return <div key={row.category}><p><span><CategoryIcon category={row.category} /> {row.category}</span><b>{money(row.amount, currency, hidden)} / {money(planned, currency, hidden)}</b></p><i><em style={{ width: `${clamp(row.amount / Math.max(planned, row.amount, 1) * 100, 0, 100)}%`, background: row.amount > planned && planned > 0 ? "#ff795e" : COLORS[index] }} /></i></div>; }) : <Empty icon={BarChart3} title="No analytics yet" copy="Add transactions to reveal your spending pattern." />}</section>
     </div>
   </section>;
@@ -482,8 +517,9 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
 
   if (loading) return <div className="tw-loading">Loading your money space…</div>;
   return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i><ArrowUpRight size={17} /></i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button>{!nativeApp && <button onClick={onExit}><ArrowLeft size={16} /> Back to home</button>}<button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
-    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}{mobileNav && <div className="tc-mobile-menu">{NAV.map(([id, label, Icon]) => <button key={id} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={16} /> {label}</button>)}<button onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={16} /> Settings</button></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
+    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
     {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>Overview</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>Activity</span></button><button className="tm-add" onClick={() => { setEditing(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>Plan</span></button><button className={mobileNav || ["recurring", "goals", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>More</span></button></nav>}
+    {mobileNav && createPortal(<div className="tm-menu-layer" role="presentation"><button className="tm-menu-scrim" onClick={() => setMobileNav(false)} aria-label="Close navigation" /><div className="tc-mobile-menu tm-menu-sheet" role="dialog" aria-label="More navigation">{NAV.map(([id, label, Icon]) => <button key={id} className={view === id ? "on" : ""} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<button className={view === "settings" ? "on" : ""} onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={17} /> Settings</button></div></div>, document.body)}
     {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : null} month={month} onClose={() => setModal(null)} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "goal" && <GoalModal onClose={() => setModal(null)} onSave={createGoal} />}
     {modal === "recurring" && <RecurringModal onClose={() => setModal(null)} onSave={createRecurring} />}

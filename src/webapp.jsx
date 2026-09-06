@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  UserRound,
   Wallet,
   X,
 } from "lucide-react";
@@ -226,7 +225,7 @@ function FAQ() {
   );
 }
 
-function Landing({ onOpen, session }) {
+function Landing({ onOpen, session, account }) {
   return (
     <div className="tw-landing">
       <header className="tw-nav">
@@ -241,8 +240,10 @@ function Landing({ onOpen, session }) {
         </nav>
         <div>
           {session ? (
-            <button className="tw-account-btn" onClick={onOpen} aria-label="Open my account">
-              <UserRound size={17} /> <span>My account</span>
+            <button className="tw-account-btn tw-account-avatar-btn" onClick={onOpen} aria-label="Open my account" title="Open my account">
+              {account.avatarUrl
+                ? <img className="tw-account-photo" src={account.avatarUrl} alt="" />
+                : <span className="tw-account-letter">{account.name.charAt(0).toUpperCase()}</span>}
             </button>
           ) : (
             <>
@@ -679,6 +680,7 @@ function Workspace({ onExit }) {
 export default function TrekWeb({ nativeApp = false }) {
   const [session, setSession] = useState(undefined);
   const [screen, setScreen] = useState(nativeApp ? "workspace" : "landing");
+  const [landingAccount, setLandingAccount] = useState({ name: "M", avatarUrl: "" });
   useEffect(() => {
     if (!supabase) {
       setSession(null);
@@ -721,6 +723,25 @@ export default function TrekWeb({ nativeApp = false }) {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [session]);
+  useEffect(() => {
+    if (!session?.user || !supabase) {
+      setLandingAccount({ name: "M", avatarUrl: "" });
+      return;
+    }
+    let active = true;
+    const loadLandingAccount = async () => {
+      const fallbackName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "Member";
+      const { data } = await supabase.from("profiles").select("full_name, avatar_path").eq("id", session.user.id).maybeSingle();
+      let avatarUrl = "";
+      if (data?.avatar_path) {
+        const signed = await supabase.storage.from("trek-avatars").createSignedUrl(data.avatar_path, 3600);
+        avatarUrl = signed.data?.signedUrl || "";
+      }
+      if (active) setLandingAccount({ name: data?.full_name || fallbackName, avatarUrl });
+    };
+    loadLandingAccount();
+    return () => { active = false; };
+  }, [session?.user?.id, session?.user?.user_metadata?.full_name, screen]);
   if (session === undefined)
     return <div className="tw-loading">Loading Trek…</div>;
   const updateProfile = async (fullName) => {
@@ -739,7 +760,7 @@ export default function TrekWeb({ nativeApp = false }) {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (!nativeApp && screen === "landing") return <Landing onOpen={openAccount} session={session} />;
+  if (!nativeApp && screen === "landing") return <Landing onOpen={openAccount} session={session} account={landingAccount} />;
   if (!session) return <AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} />;
   return (
     <Cabinet

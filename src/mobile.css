@@ -97,6 +97,11 @@ body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
     overscroll-behavior: contain;
   }
   body.trek-native .tc-mobile-menu button { min-height: 48px; border-radius: 7px; font-size: 14px; }
+  body.trek-native .tm-menu-sheet.tc-mobile-menu {
+    top: auto !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    max-height: min(54dvh, 420px);
+  }
   body.trek-native .tn-month-control { height: 42px; border-radius: 7px; overflow: hidden; }
   body.trek-native .tn-month-control strong { font-size: 13px; }
   body.trek-native .tc-hero {
