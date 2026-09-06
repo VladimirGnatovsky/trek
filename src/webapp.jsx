@@ -672,9 +672,9 @@ function Workspace({ onExit }) {
   );
 }
 
-export default function TrekWeb() {
+export default function TrekWeb({ nativeApp = false }) {
   const [session, setSession] = useState(undefined);
-  const [screen, setScreen] = useState("landing");
+  const [screen, setScreen] = useState(nativeApp ? "workspace" : "landing");
   useEffect(() => {
     if (!supabase) {
       setSession(null);
@@ -735,11 +735,12 @@ export default function TrekWeb() {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (screen === "landing") return <Landing onOpen={openAccount} session={session} />;
-  if (!session) return <AuthScreen onBack={() => setScreen("landing")} />;
+  if (!nativeApp && screen === "landing") return <Landing onOpen={openAccount} session={session} />;
+  if (!session) return <AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} />;
   return (
     <Cabinet
-      onExit={() => setScreen("landing")}
+      nativeApp={nativeApp}
+      onExit={() => nativeApp ? null : setScreen("landing")}
       onSignOut={() => supabase.auth.signOut()}
       user={session.user}
       onProfileUpdate={updateProfile}

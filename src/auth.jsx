@@ -25,7 +25,9 @@ export default function AuthScreen({ onBack }) {
     if (!configured) return;
     setBusy(true);
     setMessage("");
-    const redirectTo = `${window.location.origin}`;
+    const redirectTo = window.location.protocol === "capacitor:"
+      ? "https://trekapp.up.railway.app/"
+      : `${window.location.origin}`;
     let result;
     if (mode === "signup") {
       result = await supabase.auth.signUp({

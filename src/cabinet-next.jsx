@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, BarChart3, Bell, CalendarClock, CalendarDays, Check, ChevronLeft,
+  AlertTriangle, BarChart3, Bell, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
-  FileUp, HeartPulse, Home, LayoutDashboard, LogOut, Menu, Music2, Pencil,
+  FileUp, HeartPulse, Home, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil,
   Plus, ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Sparkles, Target,
   Trash2, Upload, UserRound, Wallet, X, Car,
 } from "lucide-react";
@@ -41,6 +41,33 @@ const money = (value, currency, hidden = false) => hidden
   ? "••••"
   : `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)} ${SYMBOLS[currency] || currency}`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const apiUrl = (path) => {
+  const configured = window.__TREK_ENV__?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
+  const nativeOrigin = window.location.protocol === "capacitor:" ? "https://trekapp.up.railway.app" : "";
+  return `${String(configured || nativeOrigin).replace(/\/$/, "")}${path}`;
+};
+
+const prepareReceiptImage = (file) => new Promise((resolve, reject) => {
+  if (!file?.type?.startsWith("image/")) return reject(new Error("Choose a receipt photo."));
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error("The receipt image could not be read."));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error("Use a JPG, PNG or WebP image."));
+    image.onload = () => {
+      const maxSide = 1500;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      const encoded = canvas.toDataURL("image/jpeg", 0.76);
+      resolve({ mimeType: "image/jpeg", data: encoded.split(",")[1] });
+    };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
 
 function CategoryIcon({ category, size = 16 }) {
   const Icon = ICONS[category] || CircleDollarSign;
@@ -249,11 +276,15 @@ function AnalyticsPage({ metrics, previousMetrics, categoryBudgets, currency, hi
 
 function Empty({ icon: Icon, title, copy }) { return <div className="tc-empty"><span className="tc-empty-icon"><Icon size={21} /></span><div className="tc-empty-copy"><b>{title}</b><span>{copy}</span></div></div>; }
 
-function EntryModal({ initial, month, onClose, onSave }) {
+function EntryModal({ initial, month, onClose, onSave, onScan }) {
   const [form, setForm] = useState(initial || { merchant: "", amount: "", category: CATEGORIES[0], type: "expense", date: monthKey() === month ? iso(new Date()) : month, note: "", tags: "", needsReview: false });
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+  const receiptRef = useRef(null);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   return <Modal onClose={onClose}><span className="tc-kicker">{initial ? "EDIT TRANSACTION" : "NEW TRANSACTION"}</span><h2>{initial ? "Update entry" : "Log an entry"}</h2><form className="tc-form tn-form-grid" onSubmit={async (event) => { event.preventDefault(); const amount = Number(String(form.amount).replace(",", ".")); if (!form.merchant.trim() || amount <= 0) return; setBusy(true); const ok = await onSave({ ...form, amount, tags: typeof form.tags === "string" ? form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : form.tags }); setBusy(false); if (ok) onClose(); }}>
+    {!initial && <div className="tn-receipt-scan tn-span-2"><button type="button" disabled={scanning} onClick={() => receiptRef.current?.click()}>{scanning ? <LoaderCircle className="tn-spin" size={18} /> : <Camera size={18} />}<span><b>{scanning ? "Reading receipt…" : "Scan a receipt"}</b><small>Take a photo or choose one from your library</small></span></button><input ref={receiptRef} hidden type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setScanning(true); setScanMessage(""); try { const parsed = await onScan(file); setForm((current) => ({ ...current, type: "expense", merchant: parsed.merchant || current.merchant, amount: parsed.amount ? String(parsed.amount) : current.amount, date: parsed.date || current.date, category: CATEGORIES.includes(parsed.category) ? parsed.category : current.category, note: parsed.note || current.note, tags: "receipt", needsReview: parsed.confidence !== "high" })); setScanMessage(parsed.currency ? `Receipt read in ${parsed.currency}. Check the details before saving.` : "Receipt read. Check the details before saving."); } catch (error) { setScanMessage(error.message || "The receipt could not be read."); } finally { setScanning(false); } }} />{scanMessage && <p>{scanMessage}</p>}</div>}
     <label>Type<select value={form.type} onChange={(event) => set("type", event.target.value)}><option value="expense">Expense</option><option value="income">Income</option></select></label>
     <label>Merchant or source<input autoFocus value={form.merchant} onChange={(event) => set("merchant", event.target.value)} /></label>
     <label>Amount<input inputMode="decimal" value={form.amount} onChange={(event) => set("amount", event.target.value)} /></label>
@@ -282,22 +313,22 @@ function CoachModal({ onClose, onAsk }) {
   return <Modal onClose={onClose} wide><span className="tc-kicker">TREK COACH · AI</span><h2>Ask about your money pace.</h2><div className="tn-prompt-chips">{prompts.map((prompt) => <button key={prompt} onClick={() => setQuestion(prompt)}>{prompt}</button>)}</div><form className="tc-form" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setError(""); setAnswer(""); try { setAnswer(await onAsk(question)); } catch (requestError) { setError(requestError.message); } finally { setBusy(false); } }}><label>Your question<textarea maxLength="600" value={question} onChange={(event) => setQuestion(event.target.value)} /></label><button className="tc-action" disabled={busy}><Sparkles size={16} /> {busy ? "Thinking…" : "Ask the coach"}</button></form>{error && <p className="tc-form-error">{error}</p>}{answer && <article className="tc-coach-answer">{answer}</article>}</Modal>;
 }
 
-function PricingModal({ plan, user, onClose, onCheckout }) {
+function PricingModal({ plan, user, onClose, onCheckout, nativeApp = false }) {
   const choices = [
-    ["Start", "Free", ["Manual tracking", "One goal", "Basic monthly plan"]],
+    ["Start", "Free", ["Manual tracking", "Receipt recognition", "One goal", "Basic monthly plan"]],
     ["Plus", "€6 / month", ["Recurring calendar", "Unlimited goals", "CSV import and export", "Advanced analytics", "Trek Coach"]],
     ["Lifetime", "€149 once", ["Every Plus feature", "Lifetime access", "Priority new features"]],
   ];
-  return <Modal onClose={onClose} wide><span className="tc-kicker">MEMBERSHIP</span><h2>Choose your Trek mode.</h2><p className="tc-modal-copy">Start with the essentials, or unlock deeper planning, automation and coaching.</p><div className="tc-prices">{choices.map(([name, price, features]) => <article key={name} className={plan === name ? "selected" : ""}><span>{name}</span><h3>{price}</h3><ul>{features.map((feature) => <li key={feature}><Check size={15} /> {feature}</li>)}</ul><button disabled={plan === name || name === "Start"} onClick={() => onCheckout(name, user)}>{plan === name ? "Current plan" : name === "Start" ? "Included" : "Continue to payment"}</button></article>)}</div></Modal>;
+  return <Modal onClose={onClose} wide><span className="tc-kicker">MEMBERSHIP</span><h2>Choose your Trek mode.</h2><p className="tc-modal-copy">{nativeApp ? "Your existing Trek membership syncs automatically across web and mobile. Purchases are not offered inside the iOS app." : "Start with the essentials, or unlock deeper planning, automation and coaching."}</p><div className="tc-prices">{choices.map(([name, price, features]) => <article key={name} className={plan === name ? "selected" : ""}><span>{name}</span><h3>{price}</h3><ul>{features.map((feature) => <li key={feature}><Check size={15} /> {feature}</li>)}</ul><button disabled={nativeApp || plan === name || name === "Start"} onClick={() => onCheckout(name, user)}>{plan === name ? "Current plan" : nativeApp ? "Synced from your account" : name === "Start" ? "Included" : "Continue to payment"}</button></article>)}</div></Modal>;
 }
 
-function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, widgets, canExport, transactions, goals, recurring, onProfile, onAvatar, onCurrency, onPrivacy, onWidgets, onPortal, onUpgrade }) {
+function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, widgets, canExport, transactions, goals, recurring, onProfile, onAvatar, onCurrency, onPrivacy, onWidgets, onPortal, onUpgrade, nativeApp = false }) {
   const [name, setName] = useState(profileName); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const exportData = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), transactions, goals, recurring, settings: { currency, privacy } }, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "trek-backup.json"; a.click(); URL.revokeObjectURL(url); };
   return <section className="tc-page"><div className="tc-page-head"><div><span>ACCOUNT</span><h2>Settings</h2><p>Control your profile, privacy, currency and membership.</p></div></div><div className="tc-settings">
     <section className="tc-panel"><span>PROFILE</span><div className="tc-profile-row">{avatarUrl ? <img className="tc-profile-avatar" src={avatarUrl} alt="Profile" /> : <span className="tc-profile-avatar">{profileName.charAt(0).toUpperCase()}</span>}<div><h3>{profileName}</h3><p>{user.email}</p></div></div><div className="tn-settings-actions"><label className="tc-upload"><Upload size={14} /> Upload photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { setBusy(true); await onAvatar(file); } catch (uploadError) { setError(uploadError.message); } finally { setBusy(false); } }} /></label></div><div className="tc-inline"><input value={name} onChange={(event) => setName(event.target.value)} /><button disabled={busy} onClick={async () => { setBusy(true); await onProfile(name); setBusy(false); }}>Save name</button></div>{error && <p className="tc-form-error">{error}</p>}</section>
     <section className="tc-panel"><span>DISPLAY</span><h3>{currency}</h3><div className="tc-choice">{["EUR", "USD", "PLN", "UAH"].map((item) => <button key={item} className={currency === item ? "on" : ""} onClick={() => onCurrency(item)}>{item}</button>)}</div><button onClick={() => onPrivacy(!privacy)}>{privacy ? <Eye size={15} /> : <EyeOff size={15} />} {privacy ? "Show amounts" : "Hide amounts"}</button></section>
-    <section className="tc-panel"><span>MEMBERSHIP</span><h3>{plan}</h3><p>Manage payments, invoices or cancellation through Stripe’s secure customer portal.</p><button onClick={plan === "Start" ? onUpgrade : onPortal}><CreditCard size={15} /> {plan === "Start" ? "See plans" : "Manage billing"}</button></section>
+    <section className="tc-panel"><span>MEMBERSHIP</span><h3>{plan}</h3><p>{nativeApp ? "Your membership and unlocked features sync automatically with your Trek account." : "Manage payments, invoices or cancellation through Stripe’s secure customer portal."}</p>{nativeApp ? <button onClick={onUpgrade}><CreditCard size={15} /> View plan features</button> : <button onClick={plan === "Start" ? onUpgrade : onPortal}><CreditCard size={15} /> {plan === "Start" ? "See plans" : "Manage billing"}</button>}</section>
     <section className="tc-panel"><span>YOUR DATA</span><h3>Export a backup</h3><p>{canExport ? "Download your transactions, goals and recurring items." : "Cloud export is available with Plus or Lifetime."}</p><button onClick={canExport ? exportData : onUpgrade}><Download size={15} /> {canExport ? "Export my data" : "Upgrade to export"}</button></section>
     <section className="tc-panel tn-dashboard-settings"><span>DASHBOARD WIDGETS</span><h3>Choose what matters</h3><p>Keep the overview focused on the information you use most.</p>{[["pace","Spending pace"],["signal","Trek signal"],["transactions","Recent transactions"],["goals","Top goal"]].map(([id,label]) => <label key={id}><input type="checkbox" checked={widgets.includes(id)} onChange={() => onWidgets(widgets.includes(id) ? widgets.filter((item) => item !== id) : [...widgets, id])} /> {label}</label>)}</section>
   </div></section>;
@@ -309,7 +340,7 @@ const parseCsv = (text) => {
   row.push(cell); if (row.some(Boolean)) rows.push(row); return rows;
 };
 
-export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
+export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nativeApp = false }) {
   const [view, setView] = useState("overview"); const [month, setMonth] = useState(monthKey()); const [modal, setModal] = useState(null); const [editing, setEditing] = useState(null);
   const [transactions, setTransactions] = useState([]); const [budgets, setBudgets] = useState([]); const [categoryRows, setCategoryRows] = useState([]); const [goals, setGoals] = useState([]); const [recurring, setRecurring] = useState([]);
   const [currency, setCurrency] = useState("EUR"); const [fallbackBudget, setFallbackBudget] = useState(0); const [privacy, setPrivacy] = useState(false); const [widgets, setWidgets] = useState(["pace", "signal", "transactions", "goals"]); const [plan, setPlan] = useState("Start"); const [avatarUrl, setAvatarUrl] = useState(""); const [profileName, setProfileName] = useState(user.user_metadata?.full_name || user.email?.split("@")[0] || "Member");
@@ -395,7 +426,14 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
 
   const uploadAvatar = async (file) => { if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) throw new Error("Choose a PNG, JPG or WebP image under 2 MB."); const path = `${user.id}/${Date.now()}.${file.name.split(".").pop()?.toLowerCase() || "jpg"}`; const upload = await supabase.storage.from("trek-avatars").upload(path, file, { contentType: file.type }); if (upload.error) throw upload.error; const profile = await supabase.from("profiles").update({ avatar_path: path, updated_at: new Date().toISOString() }).eq("id", user.id); if (profile.error) throw profile.error; const signed = await supabase.storage.from("trek-avatars").createSignedUrl(path, 3600); if (signed.error) throw signed.error; setAvatarUrl(signed.data.signedUrl); };
   const updateProfile = async (name) => { const next = name.trim() || profileName; const result = await supabase.from("profiles").update({ full_name: next, updated_at: new Date().toISOString() }).eq("id", user.id); if (result.error) return setError(result.error); await onProfileUpdate(next); setProfileName(next); return true; };
-  const authenticatedFetch = async (url, options = {}) => { const session = await supabase.auth.getSession(); return fetch(url, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token || ""}`, ...(options.headers || {}) } }); };
+  const authenticatedFetch = async (url, options = {}) => { const session = await supabase.auth.getSession(); return fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token || ""}`, ...(options.headers || {}) } }); };
+  const scanReceipt = async (file) => {
+    const image = await prepareReceiptImage(file);
+    const response = await authenticatedFetch("/api/receipt", { method: "POST", body: JSON.stringify({ image }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Receipt scanning is unavailable.");
+    return body.receipt;
+  };
   const checkout = async (choice) => { const response = await authenticatedFetch("/api/checkout", { method: "POST", body: JSON.stringify({ plan: choice }) }); const body = await response.json().catch(() => ({})); if (response.ok && body.url) return window.location.assign(body.url); const key = choice === "Plus" ? "VITE_CHECKOUT_PLUS_URL" : "VITE_CHECKOUT_LIFETIME_URL"; const fallback = window.__TREK_ENV__?.[key]; if (!fallback) return setDataError(body.error || "Checkout is not configured."); const url = new URL(fallback); url.searchParams.set("client_reference_id", user.id); if (user.email) url.searchParams.set("prefilled_email", user.email); window.location.assign(url.toString()); };
   const billingPortal = async () => { const response = await authenticatedFetch("/api/billing-portal", { method: "POST" }); const body = await response.json().catch(() => ({})); if (!response.ok) return setDataError(body.error || "Billing portal is unavailable."); window.location.assign(body.url); };
   const askCoach = async (question) => { const response = await authenticatedFetch("/api/coach", { method: "POST", body: JSON.stringify({ question, summary: { month, currency, budget, spent: metrics.spending, income: metrics.earned, remaining: metrics.remaining, safe_to_spend: metrics.safeToSpend, upcoming_bills: metrics.upcoming, daily_pace: metrics.daily, month_end_forecast: metrics.forecast, pulse_score: metrics.score, category_budgets: categoryBudgets, top_categories: metrics.byCategory.slice(0, 5), goals: goals.map((goal) => ({ name: goal.name, target: goal.target, saved: goal.saved, deadline: goal.deadline })) } }) }); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Coach is unavailable."); return body.answer; };
@@ -409,15 +447,16 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
   else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
   else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
   else if (view === "analytics") page = <AnalyticsPage metrics={metrics} previousMetrics={previousMetrics} categoryBudgets={categoryBudgets} currency={currency} hidden={privacy} />;
-  else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} plan={plan} privacy={privacy} widgets={widgets} canExport={plus} transactions={transactions} goals={goals} recurring={recurring} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} />;
+  else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} plan={plan} privacy={privacy} widgets={widgets} canExport={plus} transactions={transactions} goals={goals} recurring={recurring} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} nativeApp={nativeApp} />;
 
   if (loading) return <div className="tw-loading">Loading your money space…</div>;
-  return <div className="tc-app"><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i>↗</i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button><button onClick={onExit}>← Back to home</button><button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
+  return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i>↗</i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button>{!nativeApp && <button onClick={onExit}>← Back to home</button>}<button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
     <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true">↗</span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}{mobileNav && <div className="tc-mobile-menu">{NAV.map(([id, label, Icon]) => <button key={id} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={16} /> {label}</button>)}<button onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={16} /> Settings</button></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
-    {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : null} month={month} onClose={() => setModal(null)} onSave={saveTransaction} />}
+    {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>Overview</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>Activity</span></button><button className="tm-add" onClick={() => { setEditing(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>Plan</span></button><button className={mobileNav || ["recurring", "goals", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>More</span></button></nav>}
+    {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : null} month={month} onClose={() => setModal(null)} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "goal" && <GoalModal onClose={() => setModal(null)} onSave={createGoal} />}
     {modal === "recurring" && <RecurringModal onClose={() => setModal(null)} onSave={createRecurring} />}
     {modal === "coach" && <CoachModal onClose={() => setModal(null)} onAsk={askCoach} />}
-    {modal === "pricing" && <PricingModal plan={plan} user={user} onClose={() => setModal(null)} onCheckout={checkout} />}
+    {modal === "pricing" && <PricingModal plan={plan} user={user} onClose={() => setModal(null)} onCheckout={checkout} nativeApp={nativeApp} />}
   </div>;
 }
