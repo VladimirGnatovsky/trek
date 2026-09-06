@@ -116,8 +116,11 @@ const coach = async (req, res) => {
     const { question = "", summary = {} } = await getBody(req);
     const safeQuestion = String(question).slice(0, 600);
     const safeSummary = JSON.stringify(summary).slice(0, 4_000);
-    const prompt = `You are Trek Coach, a calm personal budgeting coach. Use only the provided aggregated data. Give a concise response in English: one short insight, 2-3 practical next steps, and one question to help the user reflect. Do not give investment, credit, tax, legal, or medical advice. Do not shame the user, do not invent facts, and say when the data is insufficient.\n\nAggregated money summary: ${safeSummary}\n\nUser question: ${safeQuestion || "What is one useful next step for me this month?"}`;
+    const prompt = `You are Trek Coach, a calm personal budgeting coach. Use only the provided aggregated data. Answer directly in English without introducing yourself. Return a complete, concise response with exactly these plain-text sections: Insight, Next steps (2-3 numbered actions), Reflection question. Do not use Markdown symbols. Do not give investment, credit, tax, legal, or medical advice. Do not shame the user, do not invent facts, and say when the data is insufficient.\n\nAggregated money summary: ${safeSummary}\n\nUser question: ${safeQuestion || "What is one useful next step for me this month?"}`;
     const model = await resolveGeminiModel();
+    const thinkingConfig = model.startsWith("gemini-3")
+      ? { thinkingLevel: "minimal" }
+      : { thinkingBudget: 0 };
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -125,7 +128,7 @@ const coach = async (req, res) => {
         headers: geminiHeaders(),
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 450 },
+          generationConfig: { maxOutputTokens: 1_200, thinkingConfig },
         }),
       }
     );
@@ -141,6 +144,10 @@ const coach = async (req, res) => {
     }
     const data = await response.json();
     const answer = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("\n").trim();
+    const finishReason = data.candidates?.[0]?.finishReason;
+    if (finishReason === "MAX_TOKENS") {
+      console.warn("Gemini response reached the output limit", model, data.usageMetadata || {});
+    }
     if (!answer) return sendJson(res, 502, { error: "Coach could not create a response. Please try again." });
     return sendJson(res, 200, { answer });
   } catch (error) {
