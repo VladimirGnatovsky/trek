@@ -457,7 +457,7 @@ function Landing({ onOpen, session }) {
       </main>
       <footer>
         <a className="tw-logo" href="#top">
-          <span>↗</span> trek
+          <span>↗</span> Trek
         </a>
         <p>Your money. Your pace. Your data.</p>
         <span>© 2026 Trek</span>
@@ -497,7 +497,7 @@ function Workspace({ onExit }) {
     <div className="tw-workspace">
       <aside className="tw-side">
         <a className="tw-logo" onClick={onExit}>
-          <span>↗</span> trek
+          <span>↗</span> Trek
         </a>
         <small>PERSONAL SPACE</small>
         <button className="on">

@@ -7,6 +7,11 @@
   min-height: 37px;
   padding: 8px 11px;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  line-height: 1.2;
   transition: background .16s ease, color .16s ease, border-color .16s ease;
 }
 .tc-signal-actions button:hover, .tc-signal-actions button:focus-visible {

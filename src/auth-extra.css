@@ -6,6 +6,13 @@
   cursor: pointer;
   padding: 0;
   text-align: left;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 9px;
+  width: fit-content;
+  font-size: 23px;
+  font-weight: 800;
 }
 .ta-brand-link i {
   width: 27px;
