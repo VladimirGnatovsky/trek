@@ -1,5 +1,21 @@
-.tc-signal-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
-.tc-signal-actions button { margin-top: 0; }
+.tc-signal-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 15px; }
+.tc-signal-actions button {
+  margin-top: 0;
+  border: 1px solid #315246;
+  background: #14251e;
+  color: #dff8eb;
+  min-height: 37px;
+  padding: 8px 11px;
+  font-size: 12px;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.tc-signal-actions button:hover, .tc-signal-actions button:focus-visible {
+  background: #00e5a0;
+  border-color: #00e5a0;
+  color: #06100c;
+  outline: 0;
+}
+.tc-signal-actions button svg { flex: 0 0 auto; }
 .tc-form textarea {
   width: 100%;
   min-height: 94px;

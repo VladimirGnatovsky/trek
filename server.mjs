@@ -66,7 +66,7 @@ const coach = async (req, res) => {
     const safeQuestion = String(question).slice(0, 600);
     const safeSummary = JSON.stringify(summary).slice(0, 4_000);
     const prompt = `You are Trek Coach, a calm personal budgeting coach. Use only the provided aggregated data. Give a concise response in English: one short insight, 2-3 practical next steps, and one question to help the user reflect. Do not give investment, credit, tax, legal, or medical advice. Do not shame the user, do not invent facts, and say when the data is insufficient.\n\nAggregated money summary: ${safeSummary}\n\nUser question: ${safeQuestion || "What is one useful next step for me this month?"}`;
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -79,8 +79,11 @@ const coach = async (req, res) => {
       }
     );
     if (!response.ok) {
-      console.error("Gemini request failed", response.status);
-      return sendJson(res, 502, { error: "Coach is temporarily unavailable. Please try again." });
+      const providerError = await response.json().catch(() => ({}));
+      console.error("Gemini request failed", response.status, providerError?.error?.status || "unknown");
+      return sendJson(res, 502, {
+        error: `Gemini rejected the request (HTTP ${response.status}). Check GEMINI_API_KEY and GEMINI_MODEL in Railway.`,
+      });
     }
     const data = await response.json();
     const answer = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("\n").trim();
