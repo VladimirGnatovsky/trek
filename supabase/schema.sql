@@ -166,9 +166,12 @@ insert into public.monthly_budgets (user_id, month_start, total)
 select user_id, date_trunc('month', current_date)::date, monthly_budget from public.user_settings
 on conflict (user_id, month_start) do nothing;
 
--- Trek owner: requested Lifetime access. Change/remove this line if ownership changes.
+-- Trek owner accounts: requested Lifetime access. Change/remove these emails if ownership changes.
 update public.subscriptions set plan = 'Lifetime', status = 'active', updated_at = now()
-where user_id in (select id from auth.users where lower(email) = 'straiker1990@gmail.com');
+where user_id in (
+  select id from auth.users
+  where lower(email) in ('straiker1990@gmail.com', 'vgtsky@gmail.com')
+);
 
 -- Private avatar storage. Files are readable/writable only by their owner.
 insert into storage.buckets (id, name, public) values ('trek-avatars', 'trek-avatars', false)

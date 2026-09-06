@@ -680,13 +680,36 @@ export default function TrekWeb() {
       setSession(null);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    let active = true;
+    const restoreSession = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        if (active) setSession(null);
+        return;
+      }
+      // getSession() only reads the local token. getUser() validates it against
+      // the currently configured Supabase project and prevents cross-project
+      // profile writes when Railway variables have been changed.
+      const { data: userData, error } = await supabase.auth.getUser();
+      if (error || !userData.user || userData.user.id !== sessionData.session.user.id) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (active) setSession(null);
+        return;
+      }
+      if (active) setSession({ ...sessionData.session, user: userData.user });
+    };
+    restoreSession();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) =>
-      setSession(nextSession)
-    );
-    return () => subscription.unsubscribe();
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // restoreSession validates the persisted token with the server first.
+      // Do not briefly expose an unverified initial session to the dashboard.
+      if (event !== "INITIAL_SESSION") setSession(nextSession);
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
   useEffect(() => {
     if (session && (window.location.hash === "#dashboard" || new URLSearchParams(window.location.search).get("checkout") === "success")) {
@@ -701,12 +724,11 @@ export default function TrekWeb() {
       data: { full_name: fullName },
     });
     if (error) throw error;
-    const { error: profileError } = await supabase.from("profiles").upsert({
-      id: data.user.id,
+    const { error: profileError } = await supabase.from("profiles").update({
       full_name: fullName,
       email: data.user.email || "",
       updated_at: new Date().toISOString(),
-    });
+    }).eq("id", data.user.id);
     if (profileError) throw profileError;
     setSession((current) =>
       current ? { ...current, user: data.user } : current

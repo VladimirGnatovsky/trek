@@ -323,9 +323,28 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     let active = true;
     (async () => {
       setLoading(true); setDataError("");
-      const profile = { id: user.id, full_name: user.user_metadata?.full_name || profileName, email: user.email || "", updated_at: new Date().toISOString() };
+      const verified = await supabase.auth.getUser();
+      if (verified.error || !verified.data.user || verified.data.user.id !== user.id) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (active) {
+          setDataError("Your session does not belong to the configured Supabase project. Sign in again.");
+          setLoading(false);
+        }
+        return;
+      }
+      const authUser = verified.data.user;
+      const profile = { id: authUser.id, full_name: authUser.user_metadata?.full_name || profileName, email: authUser.email || "", updated_at: new Date().toISOString() };
       const profileWrite = await supabase.from("profiles").upsert(profile);
-      if (profileWrite.error) { if (active) setDataError(profileWrite.error.message); return setLoading(false); }
+      if (profileWrite.error) {
+        if (active) {
+          const foreignKeyMismatch = profileWrite.error.message?.includes("profiles_id_fkey");
+          setDataError(foreignKeyMismatch
+            ? "This login belongs to another Supabase project. Sign out, clear this site's stored data, and sign in again."
+            : profileWrite.error.message);
+          setLoading(false);
+        }
+        return;
+      }
       const results = await Promise.all([
         supabase.from("profiles").select("full_name, avatar_path").eq("id", user.id).single(),
         supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
