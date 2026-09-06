@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
+  AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Bitcoin, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
   FileText, FileUp, HeartPulse, Home, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil,
   Plus, ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Sparkles, Target,
@@ -13,6 +13,7 @@ import "./profile.css";
 import "./coach.css";
 import "./cabinet-next.css";
 import { supabase } from "./supabase.js";
+import { CryptoModal, CryptoPage } from "./crypto.jsx";
 
 const CATEGORIES = ["Groceries", "Transport", "Subscriptions", "Coffee", "Shopping", "Housing", "Health", "Fun", "Other"];
 const COLORS = ["#00e5a0", "#59a9ff", "#ffcc66", "#ff795e", "#b883ff", "#35d0ba", "#f58ac5", "#9aa7ff", "#aab5af"];
@@ -21,7 +22,7 @@ const ICONS = { Groceries: ShoppingBag, Transport: Car, Subscriptions: Music2, C
 const NAV = [
   ["overview", "Overview", LayoutDashboard], ["transactions", "Transactions", ReceiptText],
   ["plan", "Monthly plan", CalendarDays], ["recurring", "Recurring", CalendarClock],
-  ["goals", "Goals", Target], ["analytics", "Analytics", BarChart3],
+  ["goals", "Goals", Target], ["crypto", "Crypto", Bitcoin], ["analytics", "Analytics", BarChart3],
 ];
 
 const iso = (date) => date.toISOString().slice(0, 10);
@@ -369,21 +370,21 @@ function StatementImportModal({ currency, onClose, onAnalyze, onConfirm }) {
 
 function PricingModal({ plan, user, onClose, onCheckout, nativeApp = false }) {
   const choices = [
-    ["Start", "Free", ["Manual tracking", "Receipt recognition", "One goal", "Basic monthly plan"]],
-    ["Plus", "€6 / month", ["Recurring calendar", "Unlimited goals", "Data export", "Advanced analytics", "Trek Coach"]],
-    ["Lifetime", "€149 once", ["Every Plus feature", "CSV and PDF bank import", "Historical NBU conversion", "Lifetime access"]],
+    ["Start", "Free", ["Manual tracking", "Receipt recognition", "One goal", "Basic monthly plan", "Two crypto positions"]],
+    ["Plus", "€6 / month", ["Recurring calendar", "Unlimited goals", "Data export", "Advanced analytics", "Trek Coach", "Unlimited crypto portfolio"]],
+    ["Lifetime", "€149 once", ["Every Plus feature", "CSV and PDF bank import", "Historical NBU conversion", "Crypto portfolio backup", "Lifetime access"]],
   ];
   return <Modal onClose={onClose} wide><span className="tc-kicker">MEMBERSHIP</span><h2>Choose your Trek mode.</h2><p className="tc-modal-copy">{nativeApp ? "Your existing Trek membership syncs automatically across web and mobile. Purchases are not offered inside the iOS app." : "Start with the essentials, or unlock deeper planning, automation and coaching."}</p><div className="tc-prices">{choices.map(([name, price, features]) => <article key={name} className={plan === name ? "selected" : ""}><span>{name}</span><h3>{price}</h3><ul>{features.map((feature) => <li key={feature}><Check size={15} /> {feature}</li>)}</ul><button disabled={nativeApp || plan === name || name === "Start"} onClick={() => onCheckout(name, user)}>{plan === name ? "Current plan" : nativeApp ? "Synced from your account" : name === "Start" ? "Included" : "Continue to payment"}</button></article>)}</div></Modal>;
 }
 
-function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, widgets, canExport, transactions, goals, recurring, onProfile, onAvatar, onCurrency, onPrivacy, onWidgets, onPortal, onUpgrade, nativeApp = false }) {
+function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, widgets, canExport, transactions, goals, recurring, cryptoHoldings, onProfile, onAvatar, onCurrency, onPrivacy, onWidgets, onPortal, onUpgrade, nativeApp = false }) {
   const [name, setName] = useState(profileName); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
-  const exportData = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), transactions, goals, recurring, settings: { currency, privacy } }, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "trek-backup.json"; a.click(); URL.revokeObjectURL(url); };
+  const exportData = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), transactions, goals, recurring, cryptoHoldings, settings: { currency, privacy } }, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "trek-backup.json"; a.click(); URL.revokeObjectURL(url); };
   return <section className="tc-page"><div className="tc-page-head"><div><span>ACCOUNT</span><h2>Settings</h2><p>Control your profile, privacy, currency and membership.</p></div></div><div className="tc-settings">
     <section className="tc-panel"><span>PROFILE</span><div className="tc-profile-row">{avatarUrl ? <img className="tc-profile-avatar" src={avatarUrl} alt="Profile" /> : <span className="tc-profile-avatar">{profileName.charAt(0).toUpperCase()}</span>}<div><h3>{profileName}</h3><p>{user.email}</p></div></div><div className="tn-settings-actions"><label className="tc-upload"><Upload size={14} /> Upload photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { setBusy(true); await onAvatar(file); } catch (uploadError) { setError(uploadError.message); } finally { setBusy(false); } }} /></label></div><div className="tc-inline"><input value={name} onChange={(event) => setName(event.target.value)} /><button disabled={busy} onClick={async () => { setBusy(true); await onProfile(name); setBusy(false); }}>Save name</button></div>{error && <p className="tc-form-error">{error}</p>}</section>
     <section className="tc-panel"><span>DISPLAY</span><h3>{currency}</h3><div className="tc-choice">{["EUR", "USD", "PLN", "UAH"].map((item) => <button key={item} className={currency === item ? "on" : ""} onClick={() => onCurrency(item)}>{item}</button>)}</div><button onClick={() => onPrivacy(!privacy)}>{privacy ? <Eye size={15} /> : <EyeOff size={15} />} {privacy ? "Show amounts" : "Hide amounts"}</button></section>
     <section className="tc-panel"><span>MEMBERSHIP</span><h3>{plan}</h3><p>{nativeApp ? "Your membership and unlocked features sync automatically with your Trek account." : "Manage payments, invoices or cancellation through Stripe’s secure customer portal."}</p>{nativeApp ? <button onClick={onUpgrade}><CreditCard size={15} /> View plan features</button> : <button onClick={plan === "Start" ? onUpgrade : onPortal}><CreditCard size={15} /> {plan === "Start" ? "See plans" : "Manage billing"}</button>}</section>
-    <section className="tc-panel"><span>YOUR DATA</span><h3>Export a backup</h3><p>{canExport ? "Download your transactions, goals and recurring items." : "Cloud export is available with Plus or Lifetime."}</p><button onClick={canExport ? exportData : onUpgrade}><Download size={15} /> {canExport ? "Export my data" : "Upgrade to export"}</button></section>
+    <section className="tc-panel"><span>YOUR DATA</span><h3>Export a backup</h3><p>{canExport ? "Download your transactions, goals, recurring items and crypto positions." : "Cloud export is available with Plus or Lifetime."}</p><button onClick={canExport ? exportData : onUpgrade}><Download size={15} /> {canExport ? "Export my data" : "Upgrade to export"}</button></section>
     <section className="tc-panel tn-dashboard-settings"><span>DASHBOARD WIDGETS</span><h3>Choose what matters</h3><p>Keep the overview focused on the information you use most.</p>{[["pace","Spending pace"],["signal","Trek signal"],["transactions","Recent transactions"],["goals","Top goal"]].map(([id,label]) => <label key={id}><input type="checkbox" checked={widgets.includes(id)} onChange={() => onWidgets(widgets.includes(id) ? widgets.filter((item) => item !== id) : [...widgets, id])} /> {label}</label>)}</section>
   </div></section>;
 }
@@ -391,12 +392,14 @@ function SettingsPage({ user, profileName, avatarUrl, currency, plan, privacy, w
 export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nativeApp = false }) {
   const [view, setView] = useState("overview"); const [month, setMonth] = useState(monthKey()); const [modal, setModal] = useState(null); const [editing, setEditing] = useState(null);
   const [transactions, setTransactions] = useState([]); const [budgets, setBudgets] = useState([]); const [categoryRows, setCategoryRows] = useState([]); const [goals, setGoals] = useState([]); const [recurring, setRecurring] = useState([]);
+  const [cryptoHoldings, setCryptoHoldings] = useState([]); const [cryptoPrices, setCryptoPrices] = useState({}); const [cryptoHistory, setCryptoHistory] = useState([]); const [cryptoPeriod, setCryptoPeriod] = useState("1M"); const [cryptoLoading, setCryptoLoading] = useState(false); const [cryptoRefresh, setCryptoRefresh] = useState(0);
   const [currency, setCurrency] = useState("EUR"); const [fallbackBudget, setFallbackBudget] = useState(0); const [privacy, setPrivacy] = useState(false); const [widgets, setWidgets] = useState(["pace", "signal", "transactions", "goals"]); const [plan, setPlan] = useState("Start"); const [avatarUrl, setAvatarUrl] = useState(""); const [profileName, setProfileName] = useState(user.user_metadata?.full_name || user.email?.split("@")[0] || "Member");
   const [loading, setLoading] = useState(true); const [dataError, setDataError] = useState(""); const [notice, setNotice] = useState(false); const [mobileNav, setMobileNav] = useState(false);
   const plus = plan !== "Start";
   const fromTransaction = (row) => ({ id: row.id, merchant: row.merchant, category: row.category, type: row.entry_type, amount: Number(row.amount), date: row.occurred_on, note: row.note || "", tags: row.tags || [], needsReview: row.needs_review || false, color: row.entry_type === "income" ? COLORS[1] : COLORS[CATEGORIES.indexOf(row.category) % COLORS.length] || COLORS[0] });
   const fromGoal = (row) => ({ id: row.id, name: row.name, target: Number(row.target_amount), saved: Number(row.saved_amount), deadline: row.deadline, icon: row.icon, color: row.color, status: row.status });
   const fromRecurring = (row) => ({ id: row.id, merchant: row.merchant, category: row.category, type: row.entry_type, amount: Number(row.amount), day: row.day_of_month, active: row.active, lastPostedMonth: row.last_posted_month });
+  const fromCrypto = (row) => ({ id: row.id, coinId: row.coin_id, symbol: row.symbol, name: row.name, quantity: Number(row.quantity), averageBuyPriceUsd: Number(row.average_buy_price_usd), source: row.source });
 
   useEffect(() => {
     let active = true;
@@ -433,13 +436,14 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
         supabase.from("category_budgets").select("*").eq("user_id", user.id),
         supabase.from("goals").select("*").eq("user_id", user.id).neq("status", "archived").order("created_at"),
         supabase.from("recurring_items").select("*").eq("user_id", user.id).order("day_of_month"),
+        supabase.from("crypto_holdings").select("*").eq("user_id", user.id).order("updated_at", { ascending: false }),
       ]);
       const failed = results.find((result) => result.error);
       if (failed) { if (active) { setDataError(`${failed.error.message}. Run the latest supabase/schema.sql migration.`); setLoading(false); } return; }
       if (!active) return;
-      const [profileResult, settingsResult, transactionResult, subscriptionResult, budgetResult, categoryResult, goalResult, recurringResult] = results;
+      const [profileResult, settingsResult, transactionResult, subscriptionResult, budgetResult, categoryResult, goalResult, recurringResult, cryptoResult] = results;
       setProfileName(profileResult.data.full_name || user.email?.split("@")[0] || "Member"); setCurrency(settingsResult.data.currency || "EUR"); setFallbackBudget(Number(settingsResult.data.monthly_budget || 0)); setPrivacy(Boolean(settingsResult.data.privacy_mode)); setWidgets(Array.isArray(settingsResult.data.dashboard_widgets) ? settingsResult.data.dashboard_widgets : ["pace", "signal", "transactions", "goals"]);
-      setTransactions(transactionResult.data.map(fromTransaction)); setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start"); setBudgets(budgetResult.data || []); setCategoryRows(categoryResult.data || []); setGoals(goalResult.data.map(fromGoal)); setRecurring(recurringResult.data.map(fromRecurring));
+      setTransactions(transactionResult.data.map(fromTransaction)); setPlan(subscriptionResult.data?.status === "active" ? subscriptionResult.data.plan : "Start"); setBudgets(budgetResult.data || []); setCategoryRows(categoryResult.data || []); setGoals(goalResult.data.map(fromGoal)); setRecurring(recurringResult.data.map(fromRecurring)); setCryptoHoldings((cryptoResult.data || []).map(fromCrypto));
       if (profileResult.data.avatar_path) { const signed = await supabase.storage.from("trek-avatars").createSignedUrl(profileResult.data.avatar_path, 3600); if (signed.data?.signedUrl) setAvatarUrl(signed.data.signedUrl); }
       setLoading(false);
     })();
@@ -447,6 +451,27 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   }, [user.id]);
 
   useEffect(() => { const handler = (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setEditing(null); setModal("entry"); } }; window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler); }, []);
+
+  const cryptoKey = cryptoHoldings.map((item) => item.coinId).sort().join(",");
+  useEffect(() => {
+    if (!cryptoKey) { setCryptoPrices({}); setCryptoHistory([]); return; }
+    let active = true;
+    setCryptoLoading(true);
+    Promise.all([
+      fetch(apiUrl(`/api/crypto-prices?ids=${encodeURIComponent(cryptoKey)}&currency=${currency}`)).then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error); return body.prices || {}; }),
+      fetch(apiUrl(`/api/crypto-history?ids=${encodeURIComponent(cryptoKey)}&currency=${currency}&period=${cryptoPeriod}`)).then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error); return body.series || {}; }),
+    ]).then(([quotes, series]) => {
+      if (!active) return;
+      setCryptoPrices(quotes);
+      const reference = Object.values(series).sort((a, b) => b.length - a.length)[0] || [];
+      setCryptoHistory(reference.map(([time], index) => ({ time, value: cryptoHoldings.reduce((total, holding) => {
+        const coinSeries = series[holding.coinId] || [];
+        const point = coinSeries[Math.min(coinSeries.length - 1, Math.round(index / Math.max(1, reference.length - 1) * Math.max(0, coinSeries.length - 1)))];
+        return total + holding.quantity * Number(point?.[1] || 0);
+      }, 0) })));
+    }).catch((error) => active && setDataError(error.message || "Crypto market data is unavailable.")).finally(() => active && setCryptoLoading(false));
+    return () => { active = false; };
+  }, [cryptoKey, currency, cryptoPeriod, cryptoRefresh]);
 
   const monthTransactions = useMemo(() => transactions.filter((item) => inMonth(item, month)), [transactions, month]);
   const previousTransactions = useMemo(() => transactions.filter((item) => inMonth(item, shiftMonth(month, -1))), [transactions, month]);
@@ -473,6 +498,26 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   const uploadAvatar = async (file) => { if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) throw new Error("Choose a PNG, JPG or WebP image under 2 MB."); const path = `${user.id}/${Date.now()}.${file.name.split(".").pop()?.toLowerCase() || "jpg"}`; const upload = await supabase.storage.from("trek-avatars").upload(path, file, { contentType: file.type }); if (upload.error) throw upload.error; const profile = await supabase.from("profiles").update({ avatar_path: path, updated_at: new Date().toISOString() }).eq("id", user.id); if (profile.error) throw profile.error; const signed = await supabase.storage.from("trek-avatars").createSignedUrl(path, 3600); if (signed.error) throw signed.error; setAvatarUrl(signed.data.signedUrl); };
   const updateProfile = async (name) => { const next = name.trim() || profileName; const result = await supabase.from("profiles").update({ full_name: next, updated_at: new Date().toISOString() }).eq("id", user.id); if (result.error) return setError(result.error); await onProfileUpdate(next); setProfileName(next); return true; };
   const authenticatedFetch = async (url, options = {}) => { const session = await supabase.auth.getSession(); return fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token || ""}`, ...(options.headers || {}) } }); };
+  const saveCrypto = async (form) => {
+    if (!(form.quantity > 0) || form.averagePrice < 0) return setError("Enter a valid quantity and average purchase price.");
+    const existing = cryptoHoldings.find((item) => item.coinId === form.coinId);
+    if (!existing && plan === "Start" && cryptoHoldings.length >= 2) { setModal("pricing"); return false; }
+    try {
+      const response = await fetch(apiUrl(`/api/crypto-prices?ids=${encodeURIComponent(form.coinId)}&currency=${currency}`));
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Could not convert the purchase price.");
+      const quote = body.prices?.[form.coinId];
+      if (!quote?.price || !quote?.usdPrice) throw new Error("No current quote is available for this asset.");
+      const payload = { user_id: user.id, coin_id: form.coinId, symbol: form.symbol, name: form.name, quantity: form.quantity, average_buy_price_usd: form.averagePrice * quote.usdPrice / quote.price, source: "manual", updated_at: new Date().toISOString() };
+      const result = await supabase.from("crypto_holdings").upsert(payload, { onConflict: "user_id,coin_id" }).select().single();
+      if (result.error) return setError(result.error);
+      const next = fromCrypto(result.data);
+      setCryptoHoldings((current) => [next, ...current.filter((item) => item.coinId !== next.coinId)]);
+      setCryptoRefresh((value) => value + 1);
+      return true;
+    } catch (error) { return setError(error); }
+  };
+  const deleteCrypto = async (id) => { const result = await supabase.from("crypto_holdings").delete().eq("id", id); if (result.error) return setError(result.error); setCryptoHoldings((current) => current.filter((item) => item.id !== id)); setCryptoRefresh((value) => value + 1); return true; };
   const analyzeStatement = async (file) => {
     const extension = file.name.split(".").pop()?.toLowerCase();
     const mimeType = extension === "pdf" ? "application/pdf" : "text/csv";
@@ -512,19 +557,21 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, nati
   else if (view === "plan") page = <PlanPage budget={budget} categoryBudgets={categoryBudgets} metrics={metrics} currency={currency} hidden={privacy} onBudgetSave={saveBudget} onCategorySave={saveCategory} onCopyPrevious={copyPrevious} />;
   else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
   else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
+  else if (view === "crypto") page = <CryptoPage holdings={cryptoHoldings} prices={cryptoPrices} history={cryptoHistory} period={cryptoPeriod} loading={cryptoLoading} currency={currency} hidden={privacy} plan={plan} onPeriod={setCryptoPeriod} onAdd={() => setModal("crypto")} onDelete={deleteCrypto} onUpgrade={() => setModal("pricing")} onRefresh={() => setCryptoRefresh((value) => value + 1)} />;
   else if (view === "analytics") page = <AnalyticsPage metrics={metrics} previousMetrics={previousMetrics} categoryBudgets={categoryBudgets} currency={currency} hidden={privacy} />;
-  else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} plan={plan} privacy={privacy} widgets={widgets} canExport={plus} transactions={transactions} goals={goals} recurring={recurring} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} nativeApp={nativeApp} />;
+  else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} plan={plan} privacy={privacy} widgets={widgets} canExport={plus} transactions={transactions} goals={goals} recurring={recurring} cryptoHoldings={cryptoHoldings} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} nativeApp={nativeApp} />;
 
   if (loading) return <div className="tw-loading">Loading your money space…</div>;
   return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i><ArrowUpRight size={17} /></i> Trek</button><small>PERSONAL SPACE</small>{NAV.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} plan</button><button onClick={() => setView("settings")}><Settings size={17} /> Settings</button>{!nativeApp && <button onClick={onExit}><ArrowLeft size={16} /> Back to home</button>}<button onClick={onSignOut}><LogOut size={17} /> Sign out</button></div></aside>
-    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{view !== "settings" && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
-    {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>Overview</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>Activity</span></button><button className="tm-add" onClick={() => { setEditing(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>Plan</span></button><button className={mobileNav || ["recurring", "goals", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>More</span></button></nav>}
+    <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{!["settings", "crypto"].includes(view) && <MonthControl value={month} onChange={setMonth} />}</div><div className="tc-top-actions"><button onClick={() => setNotice(!notice)} aria-label="Open notifications"><Bell size={18} /></button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <div className="tc-notice"><b>{metrics.score >= 70 ? "Your pace looks healthy" : "Your plan needs attention"}</b><p>{money(metrics.upcoming, currency, privacy)} in upcoming recurring expenses.</p></div>}</header>{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
+    {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>Overview</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>Activity</span></button><button className="tm-add" onClick={() => { setEditing(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>Plan</span></button><button className={mobileNav || ["recurring", "goals", "crypto", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>More</span></button></nav>}
     {mobileNav && createPortal(<div className="tm-menu-layer" role="presentation"><button className="tm-menu-scrim" onClick={() => setMobileNav(false)} aria-label="Close navigation" /><div className="tc-mobile-menu tm-menu-sheet" role="dialog" aria-label="More navigation">{NAV.map(([id, label, Icon]) => <button key={id} className={view === id ? "on" : ""} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<button className={view === "settings" ? "on" : ""} onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={17} /> Settings</button></div></div>, document.body)}
     {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : null} month={month} onClose={() => setModal(null)} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "goal" && <GoalModal onClose={() => setModal(null)} onSave={createGoal} />}
     {modal === "recurring" && <RecurringModal onClose={() => setModal(null)} onSave={createRecurring} />}
     {modal === "coach" && <CoachModal onClose={() => setModal(null)} onAsk={askCoach} />}
     {modal === "statement" && <StatementImportModal currency={currency} onClose={() => setModal(null)} onAnalyze={analyzeStatement} onConfirm={confirmStatement} />}
+    {modal === "crypto" && <CryptoModal currency={currency} onClose={() => setModal(null)} onSave={saveCrypto} />}
     {modal === "pricing" && <PricingModal plan={plan} user={user} onClose={() => setModal(null)} onCheckout={checkout} nativeApp={nativeApp} />}
   </div>;
 }

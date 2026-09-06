@@ -11,6 +11,7 @@ const limits = new Map();
 const receiptLimits = new Map();
 const statementLimits = new Map();
 const fxCache = new Map();
+const cryptoCache = new Map();
 let modelCache = { name: "", expiresAt: 0 };
 const MIME = {
   ".css": "text/css; charset=utf-8",
@@ -29,7 +30,7 @@ const sendJson = (res, status, body) => {
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   });
   res.end(JSON.stringify(body));
 };
@@ -548,6 +549,66 @@ const statementImport = async (req, res) => {
   }
 };
 
+const cryptoIds = (value) => [...new Set(String(value || "").split(",").map((item) => item.trim().toLowerCase()).filter((item) => /^[a-z0-9-]{1,80}$/.test(item)))].slice(0, 10);
+const cryptoHeaders = () => process.env.COINGECKO_API_KEY ? { "x-cg-demo-api-key": process.env.COINGECKO_API_KEY } : {};
+const cachedJson = async (key, ttl, load) => {
+  const cached = cryptoCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const data = await load();
+  cryptoCache.set(key, { data, expiresAt: Date.now() + ttl });
+  return data;
+};
+
+const cryptoPrices = async (url, res) => {
+  try {
+    const ids = cryptoIds(url.searchParams.get("ids"));
+    const currency = String(url.searchParams.get("currency") || "EUR").toLowerCase();
+    if (!ids.length || !["eur", "usd", "pln", "uah"].includes(currency)) return sendJson(res, 400, { error: "Choose supported assets and currency." });
+    const data = await cachedJson(`prices:${ids.join(",")}:${currency}`, 90_000, async () => {
+      const endpoint = new URL("https://api.coingecko.com/api/v3/simple/price");
+      endpoint.searchParams.set("ids", ids.join(","));
+      endpoint.searchParams.set("vs_currencies", currency === "usd" ? "usd" : `${currency},usd`);
+      endpoint.searchParams.set("include_24hr_change", "true");
+      endpoint.searchParams.set("include_last_updated_at", "true");
+      const response = await fetch(endpoint, { headers: cryptoHeaders() });
+      if (!response.ok) throw Object.assign(new Error("Market prices are temporarily unavailable."), { status: response.status });
+      const raw = await response.json();
+      return Object.fromEntries(ids.map((id) => [id, {
+        price: Number(raw[id]?.[currency] || 0),
+        usdPrice: Number(raw[id]?.usd || 0),
+        change24: Number(raw[id]?.[`${currency}_24h_change`] ?? raw[id]?.usd_24h_change ?? 0),
+        updatedAt: Number(raw[id]?.last_updated_at || 0),
+      }]));
+    });
+    return sendJson(res, 200, { prices: data });
+  } catch (error) {
+    return sendJson(res, error.status || 502, { error: error.message || "Market prices are unavailable." });
+  }
+};
+
+const cryptoHistory = async (url, res) => {
+  try {
+    const ids = cryptoIds(url.searchParams.get("ids")).slice(0, 5);
+    const currency = String(url.searchParams.get("currency") || "EUR").toLowerCase();
+    const period = String(url.searchParams.get("period") || "1M").toUpperCase();
+    const days = { "1D": 1, "7D": 7, "1M": 30, "3M": 90, "1Y": 365 }[period];
+    if (!ids.length || !days || !["eur", "usd", "pln", "uah"].includes(currency)) return sendJson(res, 400, { error: "Choose a valid market period." });
+    const series = await cachedJson(`history:${ids.join(",")}:${currency}:${period}`, 5 * 60_000, async () => Object.fromEntries(await Promise.all(ids.map(async (id) => {
+      const endpoint = new URL(`https://api.coingecko.com/api/v3/coins/${id}/market_chart`);
+      endpoint.searchParams.set("vs_currency", currency);
+      endpoint.searchParams.set("days", String(days));
+      const response = await fetch(endpoint, { headers: cryptoHeaders() });
+      if (!response.ok) throw Object.assign(new Error("Market history is temporarily unavailable."), { status: response.status });
+      const raw = await response.json();
+      const prices = Array.isArray(raw.prices) ? raw.prices.map(([time, price]) => [Number(time), Number(price)]) : [];
+      return [id, prices.length > 180 ? prices.filter((_, index) => index % Math.ceil(prices.length / 180) === 0) : prices];
+    }))));
+    return sendJson(res, 200, { series });
+  } catch (error) {
+    return sendJson(res, error.status || 502, { error: error.message || "Market history is unavailable." });
+  }
+};
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) return sendJson(res, 204, {});
@@ -574,6 +635,14 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/api/import-statement") {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return statementImport(req, res);
+  }
+  if (url.pathname === "/api/crypto-prices") {
+    if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed." });
+    return cryptoPrices(url, res);
+  }
+  if (url.pathname === "/api/crypto-history") {
+    if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed." });
+    return cryptoHistory(url, res);
   }
   if (url.pathname === "/env.js") {
     const config = {

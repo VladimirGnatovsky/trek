@@ -31,7 +31,7 @@ Use the public publishable key from Supabase Project Settings → API. Never add
 
 ## Persistent user data
 
-Run the complete contents of `supabase/schema.sql` in **Supabase → SQL Editor → New query → Run**. The script is safe to run again after an update. It creates private tables for profiles, settings, transactions, month-specific budgets, category envelopes, goals, recurring items and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
+Run the complete contents of `supabase/schema.sql` in **Supabase → SQL Editor → New query → Run**. The script is safe to run again after an update. It creates private tables for profiles, settings, transactions, month-specific budgets, category envelopes, goals, recurring items, crypto holdings and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
 
 ## Secure paid plans
 
@@ -58,6 +58,21 @@ statements. CSV statements are parsed locally on the Railway server without AI.
 Statement import is checked server-side and is available only to an active
 Lifetime account. Currency conversion uses the official historical NBU rate for
 each transaction date; there is no additional exchange-rate key to configure.
+
+## Crypto market data
+
+Crypto prices and chart history are requested by the Railway server and cached
+before they reach the web or iOS app. No wallet secrets are collected. The
+public CoinGecko endpoint works without additional setup; for more reliable
+rate limits, add an optional Demo API key in Railway Variables:
+
+```env
+COINGECKO_API_KEY=your-demo-api-key
+```
+
+Keep this variable server-only and do not add a `VITE_` prefix. Run either the
+latest `supabase/schema.sql` or only `supabase/crypto-migration.sql` to create
+the private `crypto_holdings` table.
 
 After deploying this update, run the latest `supabase/schema.sql` in the Supabase
 SQL Editor. The migration adds conversion provenance and duplicate-import
