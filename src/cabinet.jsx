@@ -32,6 +32,7 @@ import {
 import "./cabinet.css";
 import "./cabinet-extra.css";
 import "./profile.css";
+import "./coach.css";
 import { supabase } from "./supabase.js";
 
 const seed = [
@@ -236,7 +237,7 @@ function Score({ value = 78 }) {
   );
 }
 
-function Overview({ transactions, metrics, onAdd, setView, onPlan, onGoal }) {
+function Overview({ transactions, metrics, onAdd, setView, onPlan, onGoal, onCoach }) {
   const pace =
     metrics.forecast > metrics.budget
       ? `${money(metrics.forecast - metrics.budget)} over plan at this pace`
@@ -312,9 +313,14 @@ function Overview({ transactions, metrics, onAdd, setView, onPlan, onGoal }) {
                   metrics.budget - metrics.forecast
                 )} unspent by month end.`}
           </p>
-          <button onClick={onPlan}>
-            Review the plan <ChevronRight size={15} />
-          </button>
+          <div className="tc-signal-actions">
+            <button onClick={onPlan}>
+              Review the plan <ChevronRight size={15} />
+            </button>
+            <button onClick={onCoach}>
+              Ask the coach <Sparkles size={14} />
+            </button>
+          </div>
         </section>
         <section className="tc-panel tc-list">
           <header>
@@ -958,6 +964,46 @@ function AddModal({ onClose, onSave }) {
   );
 }
 
+function CoachModal({ onClose, onAsk }) {
+  const [question, setQuestion] = useState("What is the best next step for my budget this month?");
+  const [answer, setAnswer] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setAnswer("");
+    try {
+      setAnswer(await onAsk(question));
+    } catch (requestError) {
+      setError(requestError.message || "Coach is unavailable right now.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal onClose={onClose}>
+      <span className="tc-kicker">TREK COACH · AI</span>
+      <h2>Ask about your money pace.</h2>
+      <p className="tc-modal-copy">
+        The coach receives only your aggregated budget figures, never your email or transaction names. Its guidance is educational, not financial advice.
+      </p>
+      <form className="tc-form" onSubmit={submit}>
+        <label>
+          Your question
+          <textarea value={question} onChange={(event) => setQuestion(event.target.value)} maxLength="600" />
+        </label>
+        <button className="tc-action" disabled={busy}>
+          <Sparkles size={16} /> {busy ? "Thinking…" : "Ask the coach"}
+        </button>
+      </form>
+      {error && <p className="tc-form-error">{error}</p>}
+      {answer && <article className="tc-coach-answer">{answer}</article>}
+    </Modal>
+  );
+}
+
 export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
   const [view, setView] = useState("overview"),
     [transactions, setTransactions] = useState([]),
@@ -1107,6 +1153,46 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
     if (error) return setDataError(error.message);
     setTransactions([]);
   };
+  const askCoach = async (question) => {
+    const expenses = transactions.filter((item) => item.type !== "income");
+    const categoriesSummary = categories
+      .map((category) => ({
+        category,
+        amount: expenses
+          .filter((item) => item.category === category)
+          .reduce((sum, item) => sum + item.amount, 0),
+      }))
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 4);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const response = await fetch("/api/coach", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session?.access_token || ""}`,
+      },
+      body: JSON.stringify({
+        question,
+        summary: {
+          currency,
+          budget: metrics.budget,
+          spent: metrics.spending,
+          income: metrics.earned,
+          remaining: metrics.remaining,
+          daily_pace: metrics.daily,
+          month_end_forecast: metrics.forecast,
+          pulse_score: metrics.score,
+          goal_saved: metrics.goalSaved,
+          goal_target: 40000,
+          top_categories: categoriesSummary,
+        },
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Coach is unavailable right now.");
+    return body.answer;
+  };
   const common = { onAdd: () => setModal("add"), setView };
   let page =
     view === "overview" ? (
@@ -1116,6 +1202,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
         metrics={metrics}
         onPlan={() => setView("plan")}
         onGoal={() => setView("goals")}
+        onCoach={() => setModal("coach")}
       />
     ) : view === "transactions" ? (
       <Transactions
@@ -1254,6 +1341,9 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate }) {
       )}{" "}
       {modal === "plans" && (
         <Pricing plan={plan} onClose={() => setModal(null)} />
+      )}
+      {modal === "coach" && (
+        <CoachModal onClose={() => setModal(null)} onAsk={askCoach} />
       )}
     </div>
   );

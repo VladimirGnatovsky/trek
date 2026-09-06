@@ -1,6 +1,6 @@
 # Deploy Trek on Railway
 
-This archive is ready for a Railway deployment. It uses a Dockerfile: Node builds the Vite app and Caddy serves the resulting static files. SPA refreshes work because unknown paths fall back to `index.html`.
+This archive is ready for a Railway deployment. Node builds the Vite app, then serves the SPA and the protected Trek Coach API from one Railway service. SPA refreshes fall back to `index.html`.
 
 ## Deploy from GitHub
 
@@ -16,7 +16,7 @@ This archive is ready for a Railway deployment. It uses a Dockerfile: Node build
 3. Run `railway init`, then `railway up`.
 4. In the Railway service, generate a public domain in **Settings** → **Networking**.
 
-Railway provides `PORT` automatically and the Caddy configuration reads it at runtime.
+Railway provides `PORT` automatically.
 
 ## Enable Supabase authentication
 
@@ -27,7 +27,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. The Docker startup script exposes only these two public values at runtime, so a Railway rebuild cache cannot leave the sign-in screen without configuration. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
+Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. The Railway server exposes only these two public values to the browser at runtime. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
 
 ## Persistent user data
 
@@ -43,3 +43,14 @@ VITE_CHECKOUT_LIFETIME_URL=https://buy.stripe.com/...
 ```
 
 Trek redirects a client to the provider's hosted checkout and never receives card details. Do not put card numbers, payment secrets, webhook secrets, or a Supabase secret/service-role key in Railway variables exposed to the browser. The membership table intentionally has no browser write policy: a production payment webhook must update `public.subscriptions` after the provider confirms payment.
+
+## Gemini-powered Trek Coach
+
+The Coach endpoint runs on the Railway server and verifies the caller's Supabase session before calling Gemini. Add these **private** Railway variables, then deploy:
+
+```
+GEMINI_API_KEY=your-Google-AI-Studio-key
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+Do not prefix the Gemini key with `VITE_` and never add it to client code, Git, or Supabase. The browser sends only aggregated totals (budget, spending pace, forecast, pulse score, goal progress, and category totals), never an email address or merchant names. The server limits each signed-in account to five coach requests per ten minutes.

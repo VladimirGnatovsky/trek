@@ -1,0 +1,26 @@
+.tc-signal-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.tc-signal-actions button { margin-top: 0; }
+.tc-form textarea {
+  width: 100%;
+  min-height: 94px;
+  resize: vertical;
+  background: #0b0e11;
+  color: #fff;
+  border: 1px solid #334039;
+  padding: 12px;
+  font: 14px var(--sans);
+  outline-color: #00e5a0;
+}
+.tc-coach-answer {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #28513d;
+  background: #102019;
+  color: #dce9e1;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+}
+@media (max-width: 760px) {
+  .tc-signal-actions { display: grid; grid-template-columns: 1fr; gap: 6px; }
+}
