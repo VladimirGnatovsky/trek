@@ -1,6 +1,7 @@
 import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,12 +26,17 @@ const sendJson = (res, status, body) => {
 };
 
 const getBody = async (req) => {
+  const body = await getRawBody(req);
+  return JSON.parse(body || "{}");
+};
+
+const getRawBody = async (req, maxBytes = 1_000_000) => {
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 16_000) throw new Error("Request is too large.");
+    if (body.length > maxBytes) throw new Error("Request is too large.");
   }
-  return JSON.parse(body || "{}");
+  return body;
 };
 
 const getUser = async (authorization) => {
@@ -42,6 +48,159 @@ const getUser = async (authorization) => {
     headers: { apikey: key, authorization },
   });
   return response.ok ? response.json() : null;
+};
+
+const publicAppUrl = () => String(process.env.PUBLIC_APP_URL || "https://trekapp.up.railway.app").replace(/\/$/, "");
+
+const stripeRequest = async (endpoint, fields) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw Object.assign(new Error("Stripe server billing is not configured."), { status: 501 });
+  }
+  const body = new URLSearchParams();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") body.set(key, String(value));
+  });
+  const response = await fetch(`https://api.stripe.com/v1/${endpoint}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error("Stripe request failed", endpoint, response.status, data?.error?.type || "unknown");
+    throw Object.assign(new Error(data?.error?.message || "Stripe rejected the request."), { status: response.status });
+  }
+  return data;
+};
+
+const supabaseAdmin = async (resource, { method = "GET", body, prefer } = {}) => {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) throw Object.assign(new Error("Supabase server access is not configured."), { status: 503 });
+  const response = await fetch(`${url}/rest/v1/${resource}`, {
+    method,
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) {
+    console.error("Supabase billing update failed", response.status);
+    throw Object.assign(new Error("Could not update the Trek membership."), { status: response.status });
+  }
+  return data;
+};
+
+const checkout = async (req, res) => {
+  try {
+    const user = await getUser(req.headers.authorization);
+    if (!user) return sendJson(res, 401, { error: "Please sign in before choosing a plan." });
+    const { plan } = await getBody(req);
+    if (!['Plus', 'Lifetime'].includes(plan)) return sendJson(res, 400, { error: "Unknown membership plan." });
+    const price = plan === "Plus" ? process.env.STRIPE_PLUS_PRICE_ID : process.env.STRIPE_LIFETIME_PRICE_ID;
+    if (!price) return sendJson(res, 501, { error: "Server checkout is not configured yet." });
+    const mode = plan === "Plus" ? "subscription" : "payment";
+    const fields = {
+      mode,
+      "line_items[0][price]": price,
+      "line_items[0][quantity]": 1,
+      client_reference_id: user.id,
+      customer_email: user.email,
+      success_url: `${publicAppUrl()}/?checkout=success#dashboard`,
+      cancel_url: `${publicAppUrl()}/#dashboard`,
+      allow_promotion_codes: true,
+      "metadata[user_id]": user.id,
+      "metadata[plan]": plan,
+      ...(mode === "subscription" ? {
+        "subscription_data[metadata][user_id]": user.id,
+        "subscription_data[metadata][plan]": plan,
+      } : { customer_creation: "always" }),
+    };
+    const session = await stripeRequest("checkout/sessions", fields);
+    return sendJson(res, 200, { url: session.url });
+  } catch (error) {
+    return sendJson(res, error.status || 500, { error: error.message || "Checkout is unavailable." });
+  }
+};
+
+const billingPortal = async (req, res) => {
+  try {
+    const user = await getUser(req.headers.authorization);
+    if (!user) return sendJson(res, 401, { error: "Please sign in to manage billing." });
+    const rows = await supabaseAdmin(`subscriptions?user_id=eq.${encodeURIComponent(user.id)}&select=provider_customer_id`);
+    const customer = rows?.[0]?.provider_customer_id;
+    if (!customer) return sendJson(res, 404, { error: "No Stripe customer is connected to this account yet." });
+    const session = await stripeRequest("billing_portal/sessions", { customer, return_url: `${publicAppUrl()}/#dashboard` });
+    return sendJson(res, 200, { url: session.url });
+  } catch (error) {
+    return sendJson(res, error.status || 500, { error: error.message || "Billing portal is unavailable." });
+  }
+};
+
+const verifyStripeEvent = (payload, signature) => {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret || !signature) return false;
+  const fields = signature.split(",").map((part) => part.split("=", 2));
+  const timestamp = Number(fields.find(([key]) => key === "t")?.[1]);
+  const signatures = fields.filter(([key]) => key === "v1").map(([, value]) => value);
+  if (!timestamp || Math.abs(Date.now() / 1000 - timestamp) > 300 || !signatures.length) return false;
+  const expected = createHmac("sha256", secret).update(`${timestamp}.${payload}`, "utf8").digest("hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  return signatures.some((signatureValue) => {
+    const actualBuffer = Buffer.from(signatureValue, "hex");
+    return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+  });
+};
+
+const stripeWebhook = async (req, res) => {
+  try {
+    const payload = await getRawBody(req);
+    if (!verifyStripeEvent(payload, req.headers["stripe-signature"])) {
+      return sendJson(res, 400, { error: "Invalid Stripe signature." });
+    }
+    const event = JSON.parse(payload);
+    const object = event.data?.object || {};
+    if (event.type === "checkout.session.completed" && ["paid", "no_payment_required"].includes(object.payment_status)) {
+      const userId = object.metadata?.user_id || object.client_reference_id;
+      const plan = object.metadata?.plan || (object.mode === "subscription" ? "Plus" : "Lifetime");
+      if (userId && ["Plus", "Lifetime"].includes(plan)) {
+        await supabaseAdmin(`subscriptions?user_id=eq.${encodeURIComponent(userId)}`, {
+          method: "PATCH",
+          prefer: "return=minimal",
+          body: {
+            plan,
+            status: "active",
+            provider_customer_id: object.customer || null,
+            provider_subscription_id: object.subscription || null,
+            updated_at: new Date().toISOString(),
+          },
+        });
+      }
+    }
+    if (["customer.subscription.updated", "customer.subscription.deleted"].includes(event.type)) {
+      const userId = object.metadata?.user_id;
+      const subscriptionStatus = event.type === "customer.subscription.deleted" ? "canceled" :
+        ["active", "trialing"].includes(object.status) ? "active" : object.status === "past_due" ? "past_due" : "canceled";
+      const filter = userId
+        ? `user_id=eq.${encodeURIComponent(userId)}`
+        : `provider_subscription_id=eq.${encodeURIComponent(object.id || "missing")}`;
+      await supabaseAdmin(`subscriptions?${filter}`, {
+        method: "PATCH",
+        prefer: "return=minimal",
+        body: { status: subscriptionStatus, provider_customer_id: object.customer || null, provider_subscription_id: object.id, updated_at: new Date().toISOString() },
+      });
+    }
+    return sendJson(res, 200, { received: true });
+  } catch (error) {
+    console.error("Stripe webhook failed", error.message);
+    return sendJson(res, 500, { error: "Webhook processing failed." });
+  }
 };
 
 const allowCoachRequest = (userId) => {
@@ -164,6 +323,18 @@ const coach = async (req, res) => {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  if (url.pathname === "/api/stripe/webhook") {
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+    return stripeWebhook(req, res);
+  }
+  if (url.pathname === "/api/checkout") {
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+    return checkout(req, res);
+  }
+  if (url.pathname === "/api/billing-portal") {
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+    return billingPortal(req, res);
+  }
   if (url.pathname === "/api/coach") {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return coach(req, res);

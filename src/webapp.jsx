@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import "./webapp.css";
 import "./responsive.css";
-import Cabinet from "./cabinet.jsx";
+import Cabinet from "./cabinet-next.jsx";
 import AuthScreen from "./auth.jsx";
 import { supabase } from "./supabase.js";
 
@@ -688,6 +688,12 @@ export default function TrekWeb() {
     );
     return () => subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    if (session && (window.location.hash === "#dashboard" || new URLSearchParams(window.location.search).get("checkout") === "success")) {
+      setScreen("workspace");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [session]);
   if (session === undefined)
     return <div className="tw-loading">Loading Trek…</div>;
   const updateProfile = async (fullName) => {

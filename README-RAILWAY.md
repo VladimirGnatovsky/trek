@@ -31,7 +31,7 @@ Use the public publishable key from Supabase Project Settings → API. Never add
 
 ## Persistent user data
 
-Run the complete contents of `supabase/schema.sql` once in **Supabase → SQL Editor → New query → Run**. It creates private tables for profiles, settings, transactions and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
+Run the complete contents of `supabase/schema.sql` in **Supabase → SQL Editor → New query → Run**. The script is safe to run again after an update. It creates private tables for profiles, settings, transactions, month-specific budgets, category envelopes, goals, recurring items and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
 
 ## Secure paid plans
 
@@ -52,5 +52,21 @@ The Coach endpoint runs on the Railway server and verifies the caller's Supabase
 GEMINI_API_KEY=your-Google-AI-Studio-key
 GEMINI_MODEL=gemini-3.5-flash
 ```
+
+## Complete Stripe billing
+
+For automatic plan activation and the customer billing portal, add these server-only Railway variables:
+
+```env
+PUBLIC_APP_URL=https://trekapp.up.railway.app
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PLUS_PRICE_ID=price_...
+STRIPE_LIFETIME_PRICE_ID=price_...
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
+```
+
+In Stripe Workbench, register `https://trekapp.up.railway.app/api/stripe/webhook` and subscribe it to `checkout.session.completed`, `customer.subscription.updated`, and `customer.subscription.deleted`. Use the endpoint signing secret as `STRIPE_WEBHOOK_SECRET`. These values stay on the Railway server and must never use the `VITE_` prefix.
 
 Do not prefix the Gemini key with `VITE_` and never add it to client code, Git, or Supabase. The browser sends only aggregated totals (budget, spending pace, forecast, pulse score, goal progress, and category totals), never an email address or merchant names. The server limits each signed-in account to five coach requests per ten minutes.
