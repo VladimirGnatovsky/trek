@@ -50,7 +50,7 @@ The Coach endpoint runs on the Railway server and verifies the caller's Supabase
 
 ```
 GEMINI_API_KEY=your-Google-AI-Studio-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.5-flash
 ```
 
 Do not prefix the Gemini key with `VITE_` and never add it to client code, Git, or Supabase. The browser sends only aggregated totals (budget, spending pace, forecast, pulse score, goal progress, and category totals), never an email address or merchant names. The server limits each signed-in account to five coach requests per ten minutes.
