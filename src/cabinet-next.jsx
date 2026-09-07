@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import {
   AlertTriangle, ArrowLeft, ArrowRightLeft, ArrowUpRight, Banknote, BarChart3, Bell, Bitcoin, Camera, CalendarClock, CalendarDays, CalendarRange, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
-  FileText, FileUp, HeartPulse, Home, Landmark, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil, PiggyBank,
+  FileText, FileUp, HeartPulse, Home, Landmark, LayoutDashboard, LoaderCircle, LogOut, Menu, Mic, Music2, Pencil, PiggyBank,
   Plus, ReceiptText, RefreshCw, Repeat2, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Target, TrendingDown, TrendingUp, Trophy,
   Trash2, Upload, UserRound, Wallet, WifiOff, Workflow, X, Car,
 } from "lucide-react";
@@ -29,6 +29,7 @@ const CATEGORIES = ["Groceries", "Transport", "Subscriptions", "Coffee", "Shoppi
 const COLORS = ["#00e5a0", "#59a9ff", "#ffcc66", "#ff795e", "#b883ff", "#35d0ba", "#f58ac5", "#9aa7ff", "#aab5af"];
 const SYMBOLS = { UAH: "₴", PLN: "zł", EUR: "€", USD: "$" };
 const ICONS = { Groceries: ShoppingBag, Transport: Car, Subscriptions: Music2, Coffee, Shopping: ShoppingBag, Housing: Home, Health: HeartPulse, Fun: Sparkles, Other: CircleDollarSign };
+const categoryColor = (category, type = "expense") => type === "income" ? COLORS[1] : COLORS[Math.max(0, CATEGORIES.indexOf(category)) % COLORS.length];
 const NAV = [
   ["overview", LayoutDashboard], ["accounts", Wallet], ["transactions", ReceiptText], ["plan", CalendarDays],
   ["calendar", CalendarRange], ["recurring", CalendarClock], ["automation", Workflow], ["goals", Target], ["crypto", Bitcoin], ["analytics", BarChart3],
@@ -84,6 +85,11 @@ const prepareReceiptImage = (file) => new Promise((resolve, reject) => {
 function CategoryIcon({ category, size = 16 }) {
   const Icon = ICONS[category] || CircleDollarSign;
   return <Icon size={size} aria-hidden="true" />;
+}
+
+function CategoryBadge({ category, type = "expense", className = "" }) {
+  const color = categoryColor(category, type);
+  return <span className={`tc-txn-icon tn-category-badge ${className}`.trim()} style={{ "--category-color": color, background: `${color}20`, color }}><CategoryIcon category={category} /></span>;
 }
 
 function calculateMetrics(items, budget, selectedMonth, recurring = [], locale = "en") {
@@ -268,7 +274,7 @@ function Overview({ transactions, allTransactions, previousMetrics, recurring, m
 function TransactionRow({ item, currency, hidden, checked, onCheck, onEdit, onDelete, locale = "en" }) {
   return <div className="tc-transaction">
     {onCheck && <input type="checkbox" checked={checked} onChange={() => onCheck(item.id)} aria-label={`Select ${item.merchant}`} />}
-    <span className="tc-txn-icon" style={{ background: `${item.color}20`, color: item.color }}><CategoryIcon category={item.category} /></span>
+    <CategoryBadge category={item.category} type={item.type} />
     <div><b>{item.merchant}</b><small>{item.type === "income" ? ui(locale, "INCOME") : categoryLabel(locale, item.category)} · {item.date}{item.note ? ` · ${item.note}` : ""}</small></div>
     <em className={item.type === "income" ? "tc-income" : ""}>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</em>
     {(item.needsReview || onEdit || onDelete) && <span className="tn-transaction-actions">{item.needsReview && <AlertTriangle size={15} className="tn-review" aria-label="Needs review" />}{onEdit && <button onClick={() => onEdit(item)} aria-label="Edit transaction"><Pencil size={14} /></button>}{onDelete && <button onClick={() => onDelete(item.id)} aria-label="Delete transaction"><Trash2 size={14} /></button>}</span>}
@@ -308,7 +314,7 @@ function CalendarPage({ month, transactions, recurring, goals, metrics, currency
   const runwayDays = Math.max(1, Math.ceil((localDate(runwayEnd) - localDate(referenceDate)) / 86_400_000));
   const dailyRunway = Math.max(0, metrics.safeToSpend) / runwayDays;
   const kindLabel = (event) => event.kind === "goal" ? ui(locale, "Goal deadline") : event.kind === "recurring" ? ui(locale, "Upcoming") : ui(locale, event.type === "income" ? "Income" : "Expense");
-  return <section className="tc-page tn-calendar-page"><div className="tc-page-head"><div><span>{ui(locale, "MONEY TIMELINE")}</span><h2>{ui(locale, "Financial calendar")}</h2><p>{ui(locale, "See recorded activity, upcoming bills, income and goal deadlines together.")}</p></div></div><section className="tc-panel tn-runway"><div><span>{ui(locale, nextIncome ? "SAFE UNTIL NEXT INCOME" : "SAFE FOR THE REST OF MONTH")}</span><h3>{money(dailyRunway, currency, hidden)} <small>{ui(locale, "per day")}</small></h3><p>{nextIncome ? `${nextIncome.title} · ${nextIncome.date}` : monthLabel(month, locale)}</p></div><CalendarRange size={32} /></section><div className="tn-calendar-list">{Object.entries(groups).map(([date, dayEvents]) => <section className={`tc-panel${date === today ? " today" : ""}`} key={date}><header><time dateTime={date}><b>{localDate(date).getDate()}</b><span>{localDate(date).toLocaleDateString(LOCALE_TAGS[locale] || LOCALE_TAGS.en, { weekday: "short", month: "short" })}</span></time>{date === today && <em>{ui(locale, "Today")}</em>}</header><div>{dayEvents.map((event) => <article className={event.kind} key={event.id}><span>{event.kind === "goal" ? <Target size={16} /> : event.kind === "recurring" ? <Repeat2 size={16} /> : <CategoryIcon category={event.category} />}</span><div><b>{event.title}</b><small>{kindLabel(event)}</small></div><strong className={event.type === "income" ? "positive" : ""}>{event.kind === "goal" ? money(event.amount, currency, hidden) : `${event.type === "income" ? "+" : "−"} ${money(event.amount, currency, hidden)}`}</strong>{event.kind === "recurring" && <button onClick={() => onPost({ ...event, id: event.recurringId })}>{ui(locale, "Post")}</button>}</article>)}</div></section>)}</div></section>;
+  return <section className="tc-page tn-calendar-page"><div className="tc-page-head"><div><span>{ui(locale, "MONEY TIMELINE")}</span><h2>{ui(locale, "Financial calendar")}</h2><p>{ui(locale, "See recorded activity, upcoming bills, income and goal deadlines together.")}</p></div></div><section className="tc-panel tn-runway"><div><span>{ui(locale, nextIncome ? "SAFE UNTIL NEXT INCOME" : "SAFE FOR THE REST OF MONTH")}</span><h3>{money(dailyRunway, currency, hidden)} <small>{ui(locale, "per day")}</small></h3><p>{nextIncome ? `${nextIncome.title} · ${nextIncome.date}` : monthLabel(month, locale)}</p></div><CalendarRange size={32} /></section><div className="tn-calendar-list">{Object.entries(groups).map(([date, dayEvents]) => <section className={`tc-panel${date === today ? " today" : ""}`} key={date}><header><time dateTime={date}><b>{localDate(date).getDate()}</b><span>{localDate(date).toLocaleDateString(LOCALE_TAGS[locale] || LOCALE_TAGS.en, { weekday: "short", month: "short" })}</span></time>{date === today && <em>{ui(locale, "Today")}</em>}</header><div>{dayEvents.map((event) => <article className={event.kind} key={event.id}>{event.kind === "goal" ? <span className="tn-event-badge tn-goal-badge"><Target size={16} /></span> : event.kind === "recurring" ? <CategoryBadge category={event.category} type={event.type} className="tn-event-badge" /> : <CategoryBadge category={event.category} type={event.type} className="tn-event-badge" />}<div><b>{event.title}</b><small>{kindLabel(event)}</small></div><strong className={event.type === "income" ? "positive" : ""}>{event.kind === "goal" ? money(event.amount, currency, hidden) : `${event.type === "income" ? "+" : "−"} ${money(event.amount, currency, hidden)}`}</strong>{event.kind === "recurring" && <button onClick={() => onPost({ ...event, id: event.recurringId })}>{ui(locale, "Post")}</button>}</article>)}</div></section>)}</div></section>;
 }
 
 function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudgetSave, onCategorySave, onCopyPrevious, locale }) {
@@ -321,7 +327,7 @@ function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudget
     <section className="tc-panel tc-budget-list"><header><span>{ui(locale, "CATEGORY ENVELOPES")}</span><span>{money(Math.max(0, budget - planned), currency, hidden)} {ui(locale, "unassigned")}</span></header>{CATEGORIES.map((category, index) => {
       const spent = metrics.byCategory.find((item) => item.category === category)?.amount || 0;
       const amount = Number(categoryBudgets[category] || 0);
-      return <div className="tc-budget-row tn-budget-row" key={category}><div><CategoryIcon category={category} /><b>{categoryLabel(locale, category)}</b><small>{money(spent, currency, hidden)} {ui(locale, "spent")}</small></div><div><span><i style={{ width: `${clamp(spent / Math.max(amount, 1) * 100, 0, 100)}%`, background: spent > amount && amount > 0 ? "#ff795e" : COLORS[index] }} /></span><input inputMode="decimal" value={categoryBudgets[category] ?? ""} placeholder="0" onChange={(event) => onCategorySave(category, event.target.value, false)} onBlur={(event) => onCategorySave(category, event.target.value, true)} /></div></div>;
+      return <div className="tc-budget-row tn-budget-row" key={category}><div><CategoryBadge category={category} /><b>{categoryLabel(locale, category)}</b><small>{money(spent, currency, hidden)} {ui(locale, "spent")}</small></div><div><span><i style={{ width: `${clamp(spent / Math.max(amount, 1) * 100, 0, 100)}%`, background: spent > amount && amount > 0 ? "#ff795e" : COLORS[index] }} /></span><input inputMode="decimal" value={categoryBudgets[category] ?? ""} placeholder="0" onChange={(event) => onCategorySave(category, event.target.value, false)} onBlur={(event) => onCategorySave(category, event.target.value, true)} /></div></div>;
     })}</section>
   </section>;
 }
@@ -333,7 +339,7 @@ function RecurringPage({ items, suggestions, currency, hidden, canUse, onAdd, on
     <div className="tc-page-head"><div><span>{ui(locale, "WHAT IS COMING")}</span><h2>{ui(locale, "Recurring")}</h2><p>{ui(locale, "Plan around subscriptions, bills and regular income.")}</p></div><button className="tc-action" onClick={canUse ? onAdd : onUpgrade}><Plus size={17} /> {ui(locale, canUse ? "Add recurring" : "Unlock with Plus")}</button></div>
     <div className="tc-kpis"><div><span>{ui(locale, "MONTHLY COMMITMENTS")}</span><b>{money(total, currency, hidden)}</b><small>{ui(locale, "active recurring expenses")}</small></div><div><span>{ui(locale, "ACTIVE ITEMS")}</span><b>{items.filter((item) => item.active).length}</b><small>{ui(locale, "bills and income")}</small></div><div><span>{ui(locale, "ANNUALIZED")}</span><b>{money(total * 12, currency, hidden)}</b><small>{ui(locale, "estimated recurring spend")}</small></div></div>
     {suggestions.length > 0 && <section className="tc-panel tn-recurring-suggestions"><header><div><span>{ui(locale, "DETECTED PATTERNS")}</span><h3>{ui(locale, "Possible recurring payments")}</h3></div><small>{ui(locale, "Review before adding")}</small></header>{suggestions.slice(0, 4).map((item) => <article key={item.key}><span><Repeat2 size={17} /></span><div><b>{item.merchant}</b><small>{item.occurrences}× · {categoryLabel(locale, item.category)} · {item.confidence}% {ui(locale, "match")}</small></div><strong>{money(item.amount, currency, hidden)}</strong><button className="tc-action" onClick={() => canUse ? onAcceptSuggestion(item) : onUpgrade}>{ui(locale, canUse ? "Add recurring" : "Unlock with Plus")}</button></article>)}</section>}
-    <section className="tc-panel tn-recurring-list">{items.length ? items.sort((a, b) => a.day - b.day).map((item) => <article key={item.id}><time>{item.day}</time><span className="tc-txn-icon"><CategoryIcon category={item.category} /></span><div><b>{item.merchant}</b><small>{categoryLabel(locale, item.category)} · {ui(locale, "every month")}</small></div><strong>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</strong><button onClick={() => onPost(item)} title="Post this month"><Check size={16} /></button><button onClick={() => onDelete(item.id)} title={ui(locale, "Delete")}><Trash2 size={15} /></button></article>) : <Empty icon={CalendarClock} title={ui(locale, "No recurring items yet")} copy={ui(locale, "Add rent, subscriptions, salary or other repeating entries.")} />}</section>
+    <section className="tc-panel tn-recurring-list">{items.length ? items.sort((a, b) => a.day - b.day).map((item) => <article key={item.id}><time>{item.day}</time><CategoryBadge category={item.category} type={item.type} /><div><b>{item.merchant}</b><small>{categoryLabel(locale, item.category)} · {ui(locale, "every month")}</small></div><strong>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</strong><button onClick={() => onPost(item)} title={ui(locale, "Post this month")}><Check size={16} /></button><button className="tn-delete-icon" onClick={() => onDelete(item.id)} title={ui(locale, "Delete")}><Trash2 size={15} /></button></article>) : <Empty icon={CalendarClock} title={ui(locale, "No recurring items yet")} copy={ui(locale, "Add rent, subscriptions, salary or other repeating entries.")} />}</section>
   </section>;
 }
 
@@ -406,6 +412,33 @@ function Toast({ toast, onClose }) {
   return <div className="tn-toast" role="status"><Check size={16} /><span>{toast.message}</span>{toast.action && <button onClick={toast.action}>{toast.actionLabel || "Undo"}</button>}<button onClick={onClose} aria-label="Dismiss"><X size={14} /></button></div>;
 }
 
+const VOICE_CATEGORY_WORDS = {
+  Groceries: /\b(lidl|aldi|biedronka|carrefour|grocer(?:y|ies)|food|продукт(?:и|ы)?|магазин|sklep|spożywcze)\b/i,
+  Transport: /\b(uber|bolt|taxi|fuel|petrol|transport|бензин|таксі|такси|paliwo)\b/i,
+  Subscriptions: /\b(netflix|spotify|subscription|підписк|подписк|subskrypcj)\b/i,
+  Coffee: /\b(coffee|cafe|cappuccino|latte|кава|кофе|kawa)\b/i,
+  Shopping: /\b(shopping|amazon|покупк|zakupy)\b/i,
+  Housing: /\b(rent|housing|utilities|оренд|аренд|czynsz|mieszkanie)\b/i,
+  Health: /\b(health|doctor|pharmacy|лікар|аптек|zdrowie|lekarz)\b/i,
+  Fun: /\b(cinema|game|fun|кіно|розваг|кино|rozrywk)\b/i,
+};
+
+function voiceTransactionDraft(transcript, categoryRules) {
+  const numberMatches = [...transcript.matchAll(/(?:^|\s)(\d+(?:[.,]\d{1,2})?)(?=\s|$|\s?(?:€|\$|zł|грн|uah|pln|eur|usd))/gi)];
+  const amountMatch = numberMatches.at(-1);
+  const amount = amountMatch?.[1]?.replace(",", ".") || "";
+  const income = /\b(income|salary|paycheck|дохід|зарплат|доход|виплат|przychód|pensj|wynagrodzen)\b/i.test(transcript);
+  let merchant = transcript
+    .replace(/\b(add|log|record|expense|income|transaction|додай|додати|запиши|витрат(?:а|у)?|дохід|добавь|запиши|расход|доход|dodaj|zapisz|wydatek|przychód)\b/gi, " ")
+    .replace(/\d+(?:[.,]\d{1,2})?\s*(?:€|\$|zł|грн|uah|pln|eur|usd|euros?|dollars?|złot(?:y|ych|e)|грив(?:ня|ні|ень)|hryvnias?)?/gi, " ")
+    .replace(/\s+/g, " ").trim();
+  merchant = merchant.replace(/^[,.;:\-–—]+|[,.;:\-–—]+$/g, "").trim() || transcript.trim();
+  const category = Object.entries(VOICE_CATEGORY_WORDS).find(([, pattern]) => pattern.test(transcript))?.[0]
+    || suggestedCategory(merchant, categoryRules)
+    || CATEGORIES[0];
+  return { merchant, amount, type: income ? "income" : "expense", category };
+}
+
 function EntryModal({ initial, isEditing = false, month, categoryRules, accounts, onClose, onSave, onScan, copy, locale }) {
   const defaultAccountId = accounts.find((item) => item.kind === "bank" && !item.archived)?.id || accounts.find((item) => item.kind !== "crypto" && !item.archived)?.id || "";
   const [form, setForm] = useState(initial || { merchant: "", amount: "", category: CATEGORIES[0], type: "expense", date: monthKey() === month ? iso(new Date()) : month, note: "", tags: "", needsReview: false, accountId: defaultAccountId });
@@ -413,10 +446,36 @@ function EntryModal({ initial, isEditing = false, month, categoryRules, accounts
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
+  const [listening, setListening] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
   const receiptRef = useRef(null);
+  const recognitionRef = useRef(null);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  useEffect(() => () => recognitionRef.current?.abort(), []);
+  const dictate = () => {
+    if (listening) { recognitionRef.current?.stop(); return; }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) { setVoiceMessage(copy.voiceUnavailable); return; }
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    recognition.lang = LOCALE_TAGS[locale] || LOCALE_TAGS.en;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => { setListening(true); setVoiceMessage(copy.voiceListening); };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => { setListening(false); setVoiceMessage(copy.voiceError); };
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+      if (!transcript) return;
+      const draft = voiceTransactionDraft(transcript, categoryRules);
+      setForm((current) => ({ ...current, ...draft, note: current.note || transcript }));
+      setCategoryTouched(true);
+      setVoiceMessage(copy.voiceCaptured);
+    };
+    recognition.start();
+  };
   return <Modal onClose={onClose}><span className="tc-kicker">{isEditing ? copy.edit : copy.fresh}</span><h2>{isEditing ? copy.update : copy.log}</h2><form className="tc-form tn-form-grid" onSubmit={async (event) => { event.preventDefault(); const amount = Number(String(form.amount).replace(",", ".")); if (!form.merchant.trim() || amount <= 0) return; setBusy(true); const ok = await onSave({ ...form, amount, tags: typeof form.tags === "string" ? form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : form.tags }); setBusy(false); if (ok) onClose(); }}>
-    {!isEditing && <div className="tn-receipt-scan tn-span-2"><button type="button" disabled={scanning} onClick={() => receiptRef.current?.click()}>{scanning ? <LoaderCircle className="tn-spin" size={18} /> : <Camera size={18} />}<span><b>{scanning ? copy.reading : copy.scan}</b><small>{copy.scanHelp}</small></span></button><input ref={receiptRef} hidden type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setScanning(true); setScanMessage(""); try { const parsed = await onScan(file); setForm((current) => ({ ...current, type: "expense", merchant: parsed.merchant || current.merchant, amount: parsed.amount ? String(parsed.amount) : current.amount, date: parsed.date || current.date, category: CATEGORIES.includes(parsed.category) ? parsed.category : current.category, note: parsed.note || current.note, tags: "receipt", needsReview: parsed.confidence !== "high", originalAmount: parsed.originalAmount, originalCurrency: parsed.originalCurrency, exchangeRate: parsed.exchangeRate, exchangeRateDate: parsed.exchangeRateDate })); const conversion = parsed.originalCurrency && parsed.currency && parsed.originalCurrency !== parsed.currency ? ` Converted ${parsed.originalAmount} ${parsed.originalCurrency} to ${parsed.amount} ${parsed.currency} using the official rate.` : ""; setScanMessage(`Receipt read.${conversion} Check the details before saving.`); } catch (error) { setScanMessage(error.message || "The receipt could not be read."); } finally { setScanning(false); } }} />{scanMessage && <p>{scanMessage}</p>}</div>}
+    {!isEditing && <div className="tn-entry-capture tn-span-2"><div className="tn-receipt-scan"><button type="button" disabled={scanning} onClick={() => receiptRef.current?.click()}>{scanning ? <LoaderCircle className="tn-spin" size={18} /> : <Camera size={18} />}<span><b>{scanning ? copy.reading : copy.scan}</b><small>{copy.scanHelp}</small></span></button><input ref={receiptRef} hidden type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setScanning(true); setScanMessage(""); try { const parsed = await onScan(file); setForm((current) => ({ ...current, type: "expense", merchant: parsed.merchant || current.merchant, amount: parsed.amount ? String(parsed.amount) : current.amount, date: parsed.date || current.date, category: CATEGORIES.includes(parsed.category) ? parsed.category : current.category, note: parsed.note || current.note, tags: "receipt", needsReview: parsed.confidence !== "high", originalAmount: parsed.originalAmount, originalCurrency: parsed.originalCurrency, exchangeRate: parsed.exchangeRate, exchangeRateDate: parsed.exchangeRateDate })); const conversion = parsed.originalCurrency && parsed.currency && parsed.originalCurrency !== parsed.currency ? ` Converted ${parsed.originalAmount} ${parsed.originalCurrency} to ${parsed.amount} ${parsed.currency} using the official rate.` : ""; setScanMessage(`Receipt read.${conversion} Check the details before saving.`); } catch (error) { setScanMessage(error.message || "The receipt could not be read."); } finally { setScanning(false); } }} />{scanMessage && <p>{scanMessage}</p>}</div><div className="tn-voice-entry"><button type="button" className={listening ? "listening" : ""} onClick={dictate}><Mic size={18} /><span><b>{listening ? copy.voiceListening : copy.voice}</b><small>{copy.voiceHelp}</small></span></button>{voiceMessage && <p role="status">{voiceMessage}</p>}</div></div>}
     <label>{copy.type}<select value={form.type} onChange={(event) => set("type", event.target.value)}><option value="expense">{copy.expense}</option><option value="income">{copy.income}</option></select></label>
     <label>{copy.merchant}<input autoFocus value={form.merchant} onChange={(event) => { const merchant = event.target.value; const category = !categoryTouched ? suggestedCategory(merchant, categoryRules) : null; setForm((current) => ({ ...current, merchant, ...(category ? { category } : {}) })); }} /></label>
     <label>{copy.amount}<input inputMode="decimal" value={form.amount} onChange={(event) => set("amount", event.target.value)} /></label>
