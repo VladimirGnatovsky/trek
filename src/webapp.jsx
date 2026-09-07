@@ -13,7 +13,6 @@ import {
   CircleHelp,
   CreditCard,
   Download,
-  Globe2,
   LayoutDashboard,
   Menu,
   Plus,
@@ -32,6 +31,7 @@ import { CookieNotice, LegalCenter } from "./legal.jsx";
 import mobileGuideUrl from "../assets/trek-mobile-guide.webm?url";
 import { preferredLocale } from "../lib/locale.mjs";
 import { PUBLIC_COPY } from "./public-copy.js";
+import LanguageSwitch from "./language-switch.jsx";
 
 const Cabinet = lazy(() => import("./cabinet-next.jsx"));
 const AuthScreen = lazy(() => import("./auth.jsx"));
@@ -236,7 +236,7 @@ function Landing({ onOpen, session, account, onLegal, locale, onLocale }) {
           <a href="#faq">{copy.nav[3]}</a>
         </nav>
         <div>
-          <label className="tw-language"><Globe2 size={15} /><span className="sr-only">Language</span><select value={locale} onChange={(event) => onLocale(event.target.value)} aria-label="Language"><option value="en">EN</option><option value="pl">PL</option><option value="uk">UA</option></select></label>
+          <LanguageSwitch locale={locale} onChange={onLocale} className="tw-language" />
           {session ? (
             <button className="tw-account-btn tw-account-avatar-btn" onClick={onOpen} aria-label="Open my account" title="Open my account">
               {account.avatarUrl
@@ -755,6 +755,8 @@ export default function TrekWeb({ nativeApp = false }) {
         onSignOut={() => supabase.auth.signOut()}
         user={session.user}
         onProfileUpdate={updateProfile}
+        locale={locale}
+        onLocale={changeLocale}
       /></Suspense>
   );
 }
