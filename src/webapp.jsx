@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -26,11 +26,12 @@ import {
 } from "lucide-react";
 import "./webapp.css";
 import "./responsive.css";
-import Cabinet from "./cabinet-next.jsx";
-import AuthScreen from "./auth.jsx";
 import { supabase } from "./supabase.js";
 import { CookieNotice, LegalCenter } from "./legal.jsx";
 import mobileGuideUrl from "../assets/trek-mobile-guide.webm?url";
+
+const Cabinet = lazy(() => import("./cabinet-next.jsx"));
+const AuthScreen = lazy(() => import("./auth.jsx"));
 
 const seed = [
   {
@@ -792,14 +793,14 @@ export default function TrekWeb({ nativeApp = false }) {
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
   if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} /><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
-  if (!session) return <><AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!session) return <><Suspense fallback={<div className="tw-loading">Opening secure sign-in…</div>}><AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   return (
-    <Cabinet
-      nativeApp={nativeApp}
-      onExit={() => nativeApp ? null : setScreen("landing")}
-      onSignOut={() => supabase.auth.signOut()}
-      user={session.user}
-      onProfileUpdate={updateProfile}
-    />
+    <Suspense fallback={<div className="tw-loading">Opening your money space…</div>}><Cabinet
+        nativeApp={nativeApp}
+        onExit={() => nativeApp ? null : setScreen("landing")}
+        onSignOut={() => supabase.auth.signOut()}
+        user={session.user}
+        onProfileUpdate={updateProfile}
+      /></Suspense>
   );
 }
