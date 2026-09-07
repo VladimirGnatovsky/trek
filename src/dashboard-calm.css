@@ -1,0 +1,103 @@
+/* The grid is useful on the landing page, but creates moire behind dense data. */
+.tc-app {
+  background-image: radial-gradient(circle at 68% -10%, rgba(0, 229, 160, 0.045), transparent 34%) !important;
+  background-size: auto !important;
+  background-attachment: fixed;
+}
+
+html[data-theme="light"] .tc-app {
+  background-color: #f4f6f2;
+  background-image: radial-gradient(circle at 68% -10%, rgba(0, 143, 102, 0.07), transparent 36%) !important;
+}
+
+.tn-quick-repeat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+
+.tn-quick-repeat > span {
+  color: #8d9994;
+  font: 10px var(--mono);
+  letter-spacing: 0.09em;
+  white-space: nowrap;
+}
+
+.tn-quick-repeat > div {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tn-quick-repeat > div::-webkit-scrollbar { display: none; }
+
+.tn-quick-repeat button {
+  min-width: 0;
+  max-width: 210px;
+  min-height: 42px;
+  margin: 0 !important;
+  padding: 7px 11px !important;
+  border: 1px solid #303b3c !important;
+  background: #151b1e !important;
+  color: #dbe5df !important;
+  display: grid !important;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tn-quick-repeat button:hover,
+.tn-quick-repeat button:focus-visible {
+  border-color: #00e5a0 !important;
+  outline: none;
+}
+
+.tn-quick-repeat button > span {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: #16382c;
+  color: #00e5a0;
+  display: grid;
+  place-items: center;
+}
+
+.tn-quick-repeat button b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.tn-quick-repeat button small {
+  color: #99a69f;
+  font: 10px var(--mono);
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .tn-quick-repeat > span { color: #596b61; }
+html[data-theme="light"] .tn-quick-repeat button {
+  background: #f8faf8 !important;
+  border-color: #ccd7d1 !important;
+  color: #17231e !important;
+}
+html[data-theme="light"] .tn-quick-repeat button > span { background: #d8eee3; color: #007c58; }
+html[data-theme="light"] .tn-quick-repeat button small { color: #5d6d65; }
+
+@media (max-width: 760px) {
+  .tn-quick-repeat {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .tn-quick-repeat button {
+    flex: 0 0 min(78vw, 210px);
+  }
+}
