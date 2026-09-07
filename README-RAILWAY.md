@@ -90,8 +90,13 @@ STRIPE_PLUS_PRICE_ID=price_...
 STRIPE_LIFETIME_PRICE_ID=price_...
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_...
+ADMIN_EMAILS=owner@example.com
 ```
 
 In Stripe Workbench, register `https://trekapp.up.railway.app/api/stripe/webhook` and subscribe it to `checkout.session.completed`, `customer.subscription.updated`, and `customer.subscription.deleted`. Use the endpoint signing secret as `STRIPE_WEBHOOK_SECRET`. These values stay on the Railway server and must never use the `VITE_` prefix.
+
+`ADMIN_EMAILS` is a comma-separated allowlist for the protected membership tool in
+Trek Settings. Only authenticated accounts on this list can search users or assign
+Start, Plus and Lifetime access. Manual grants do not create Stripe charges.
 
 Do not prefix the Gemini key with `VITE_` and never add it to client code, Git, or Supabase. The browser sends only aggregated totals (budget, spending pace, forecast, pulse score, goal progress, and category totals), never an email address or merchant names. The server limits each signed-in account to five coach requests per ten minutes.

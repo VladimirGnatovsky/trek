@@ -61,6 +61,11 @@ const getUser = async (authorization) => {
 };
 
 const publicAppUrl = () => String(process.env.PUBLIC_APP_URL || "https://trekapp.up.railway.app").replace(/\/$/, "");
+const adminEmails = () => new Set(String(process.env.ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean));
+const authenticatedAdmin = async (authorization) => {
+  const user = await getUser(authorization);
+  return user && adminEmails().has(String(user.email || "").toLowerCase()) ? user : null;
+};
 
 const stripeRequest = async (endpoint, fields) => {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -94,6 +99,7 @@ const supabaseAdmin = async (resource, { method = "GET", body, prefer } = {}) =>
     method,
     headers: {
       apikey: key,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       ...(prefer ? { Prefer: prefer } : {}),
     },
@@ -150,6 +156,38 @@ const billingPortal = async (req, res) => {
     return sendJson(res, 200, { url: session.url });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error.message || "Billing portal is unavailable." });
+  }
+};
+
+const adminUsers = async (req, res, url) => {
+  try {
+    const admin = await authenticatedAdmin(req.headers.authorization);
+    if (!admin) return sendJson(res, 403, { error: "Administrator access is required." });
+    if (req.method === "GET") {
+      const email = String(url.searchParams.get("email") || "").trim().toLowerCase().slice(0, 160);
+      if (!/^\S+@\S+\.\S+$/.test(email)) return sendJson(res, 400, { error: "Enter a complete account email." });
+      const profiles = await supabaseAdmin(`profiles?email=ilike.${encodeURIComponent(email)}&select=id,email,full_name&limit=1`);
+      const profile = profiles?.[0];
+      if (!profile) return sendJson(res, 404, { error: "No Trek account uses this email." });
+      const subscriptions = await supabaseAdmin(`subscriptions?user_id=eq.${encodeURIComponent(profile.id)}&select=plan,status,updated_at&limit=1`);
+      return sendJson(res, 200, { user: { ...profile, plan: subscriptions?.[0]?.plan || "Start", status: subscriptions?.[0]?.status || "active", updatedAt: subscriptions?.[0]?.updated_at || null } });
+    }
+    if (req.method === "POST") {
+      const { email: suppliedEmail, plan } = await getBody(req);
+      const email = String(suppliedEmail || "").trim().toLowerCase().slice(0, 160);
+      if (!/^\S+@\S+\.\S+$/.test(email)) return sendJson(res, 400, { error: "Enter a complete account email." });
+      if (!["Start", "Plus", "Lifetime"].includes(plan)) return sendJson(res, 400, { error: "Choose Start, Plus or Lifetime." });
+      const profiles = await supabaseAdmin(`profiles?email=ilike.${encodeURIComponent(email)}&select=id,email,full_name&limit=1`);
+      const profile = profiles?.[0];
+      if (!profile) return sendJson(res, 404, { error: "No Trek account uses this email." });
+      const rows = await supabaseAdmin("subscriptions?on_conflict=user_id", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: { user_id: profile.id, plan, status: "active", updated_at: new Date().toISOString() } });
+      console.info("Membership changed by admin", admin.email, profile.email, plan);
+      return sendJson(res, 200, { user: { ...profile, plan: rows?.[0]?.plan || plan, status: "active", updatedAt: rows?.[0]?.updated_at || new Date().toISOString() } });
+    }
+    return sendJson(res, 405, { error: "Method not allowed." });
+  } catch (error) {
+    console.error("Admin membership endpoint failed", error.message);
+    return sendJson(res, error.status || 500, { error: error.message || "Membership could not be updated." });
   }
 };
 
@@ -644,6 +682,11 @@ const server = createServer(async (req, res) => {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return billingPortal(req, res);
   }
+  if (url.pathname === "/api/admin/status") {
+    if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed." });
+    return sendJson(res, 200, { admin: Boolean(await authenticatedAdmin(req.headers.authorization)) });
+  }
+  if (url.pathname === "/api/admin/users") return adminUsers(req, res, url);
   if (url.pathname === "/api/coach") {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return coach(req, res);
