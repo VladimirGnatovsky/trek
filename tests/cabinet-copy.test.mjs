@@ -21,4 +21,6 @@ test("localizes settings and coach controls", () => {
   assert.equal(ui("pl", "Continue to payment"), "Przejdź do płatności");
   assert.equal(ui("pl", "QUICK REPEAT"), "SZYBKIE POWTÓRZENIE");
   assert.equal(ui("uk", "Open a prefilled transaction"), "Відкрити заповнену транзакцію");
+  assert.equal(ui("pl", "Accounts"), "Konta");
+  assert.equal(ui("uk", "Save transfer"), "Зберегти переказ");
 });

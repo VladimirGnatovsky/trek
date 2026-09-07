@@ -349,10 +349,13 @@ const coach = async (req, res) => {
     if (!process.env.GEMINI_API_KEY) {
       return sendJson(res, 503, { error: "The coach is not configured yet." });
     }
-    const { question = "", summary = {} } = await getBody(req);
+    const { question = "", summary = {}, locale = "en" } = await getBody(req);
     const safeQuestion = String(question).slice(0, 600);
     const safeSummary = JSON.stringify(summary).slice(0, 4_000);
-    const prompt = `You are Trek Coach, a calm personal budgeting coach. Use only the provided aggregated data. Answer directly in English without introducing yourself. Return a complete, concise response with exactly these plain-text sections: Insight, Next steps (2-3 numbered actions), Reflection question. Do not use Markdown symbols. Do not give investment, credit, tax, legal, or medical advice. Do not shame the user, do not invent facts, and say when the data is insufficient.\n\nAggregated money summary: ${safeSummary}\n\nUser question: ${safeQuestion || "What is one useful next step for me this month?"}`;
+    const language = { pl: "Polish", uk: "Ukrainian", en: "English" }[locale] || "English";
+    const sectionNames = { pl: "Wniosek, Następne kroki, Pytanie do refleksji", uk: "Висновок, Наступні кроки, Питання для роздумів", en: "Insight, Next steps, Reflection question" }[locale] || "Insight, Next steps, Reflection question";
+    const fallbackQuestion = { pl: "Jaki jest jeden przydatny następny krok w tym miesiącu?", uk: "Який корисний наступний крок варто зробити цього місяця?", en: "What is one useful next step for me this month?" }[locale] || "What is one useful next step for me this month?";
+    const prompt = `You are Trek Coach, a calm personal budgeting coach. Use only the provided aggregated data. Answer directly in ${language} without introducing yourself, even when category names or stored data are in another language. Return a complete, concise response with exactly these plain-text sections in this language: ${sectionNames}. The middle section must contain 2-3 numbered actions. Do not use Markdown symbols. Do not give investment, credit, tax, legal, or medical advice. Do not shame the user, do not invent facts, and say when the data is insufficient.\n\nAggregated money summary: ${safeSummary}\n\nUser question: ${safeQuestion || fallbackQuestion}`;
     const model = await resolveGeminiModel();
     const thinkingConfig = model.startsWith("gemini-3")
       ? { thinkingLevel: "minimal" }

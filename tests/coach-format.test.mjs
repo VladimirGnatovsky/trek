@@ -20,3 +20,9 @@ test("also accepts markdown headings and bullet lists", () => {
     { type: "list", items: ["First point", "Second point"] },
   ]);
 });
+
+test("formats localized Polish and Ukrainian coach sections", () => {
+  assert.equal(parseCoachAnswer("Wniosek\nPlan jest bezpieczny.\n\nNastępne kroki\n1. Oszczędzaj dalej.")[0].type, "heading");
+  const ukrainian = parseCoachAnswer("Висновок\nТемп у межах плану.\n\nНаступні кроки\n1. Перевірте бюджет.");
+  assert.deepEqual(ukrainian.map((block) => block.type), ["heading", "paragraph", "heading", "ordered-list"]);
+});

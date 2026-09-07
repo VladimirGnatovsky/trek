@@ -40,7 +40,7 @@ Use the public publishable key from Supabase Project Settings → API. Never add
 
 ## Persistent user data
 
-Run the complete contents of `supabase/schema.sql` in **Supabase → SQL Editor → New query → Run**. The script is safe to run again after an update. It creates private tables for profiles, settings, transactions, month-specific budgets, category envelopes, goals, recurring items, crypto holdings and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new account receives its own settings and Start membership automatically.
+Run the complete contents of `supabase/schema.sql` in **Supabase → SQL Editor → New query → Run**. The script is safe to run again after an update. It creates private tables for profiles, settings, transactions, money accounts, internal transfers, month-specific budgets, category envelopes, goals, recurring items, crypto holdings and memberships. Row Level Security means an authenticated user can read and change only their own records. Every new user receives Cash, Bank card, Savings and Crypto accounts together with their settings and Start membership. Existing transactions are assigned to Bank card when the accounts migration is first applied.
 
 ## Secure paid plans
 

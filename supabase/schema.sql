@@ -282,9 +282,16 @@ select id, coalesce(raw_user_meta_data ->> 'full_name', ''), coalesce(email, '')
 on conflict (id) do nothing;
 insert into public.user_settings (user_id) select id from auth.users on conflict (user_id) do nothing;
 insert into public.subscriptions (user_id) select id from auth.users on conflict (user_id) do nothing;
-insert into public.financial_accounts (user_id, name, kind, opening_balance)
-select users.id, seed.name, seed.kind, 0 from auth.users users cross join (values ('Cash','cash'),('Bank card','bank'),('Savings','savings'),('Crypto','crypto')) seed(name,kind)
+insert into public.financial_accounts (user_id, name, kind, currency, opening_balance)
+select users.id, seed.name, seed.kind, coalesce(settings.currency, 'EUR'), 0 from auth.users users left join public.user_settings settings on settings.user_id = users.id cross join (values ('Cash','cash'),('Bank card','bank'),('Savings','savings'),('Crypto','crypto')) seed(name,kind)
 on conflict (user_id, name) do nothing;
+
+-- Put historical entries on the default bank card so account balances are useful
+-- immediately after enabling the feature.
+update public.transactions transaction
+set account_id = account.id
+from public.financial_accounts account
+where transaction.user_id = account.user_id and account.name = 'Bank card' and transaction.account_id is null;
 
 insert into public.monthly_budgets (user_id, month_start, total)
 select user_id, date_trunc('month', current_date)::date, monthly_budget from public.user_settings

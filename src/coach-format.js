@@ -1,4 +1,4 @@
-const PLAIN_HEADINGS = /^(?:\*\*)?(insight|next steps?|reflection question|summary|recommendation|recommendations|action plan|why it matters|watch next)(?:\*\*)?\s*:?\s*$/i;
+const PLAIN_HEADINGS = /^(?:\*\*)?(insight|next steps?|reflection question|summary|recommendation|recommendations|action plan|why it matters|watch next|wniosek|następne kroki|pytanie do refleksji|podsumowanie|rekomendacje?|plan działania|dlaczego to ważne|висновок|наступні кроки|питання для роздумів|підсумок|рекомендації|план дій|чому це важливо)(?:\*\*)?\s*:?\s*$/i;
 
 const cleanHeading = (value) => String(value)
   .replace(/^#{1,4}\s*/, "")
