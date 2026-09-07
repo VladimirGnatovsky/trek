@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Bitcoin, Camera, CalendarClock, CalendarDays, Check, ChevronLeft,
+  AlertTriangle, ArrowLeft, ArrowUpRight, Banknote, BarChart3, Bell, Bitcoin, Camera, CalendarClock, CalendarDays, CalendarRange, Check, ChevronLeft,
   ChevronRight, CircleDollarSign, Coffee, CreditCard, Download, Eye, EyeOff,
   FileText, FileUp, HeartPulse, Home, LayoutDashboard, LoaderCircle, LogOut, Menu, Music2, Pencil,
-  Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Target,
+  Plus, ReceiptText, RefreshCw, Repeat2, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Target, TrendingDown, TrendingUp, Trophy,
   Trash2, Upload, UserRound, Wallet, WifiOff, X, Car,
 } from "lucide-react";
 import "./cabinet.css";
@@ -13,12 +13,14 @@ import "./profile.css";
 import "./coach.css";
 import "./cabinet-next.css";
 import "./dashboard-calm.css";
+import "./product-intelligence.css";
 import { supabase } from "./supabase.js";
 import { CryptoModal, CryptoPage } from "./crypto.jsx";
 import { normalizeMerchant, suggestedCategory } from "../lib/merchant-rules.mjs";
 import { validateBackup } from "../lib/backup.mjs";
 import { CABINET_COPY, categoryLabel, ui } from "./cabinet-copy.js";
 import { parseCoachAnswer } from "./coach-format.js";
+import { buildFinancialTimeline, buildSmartInsights, buildWeeklyReport, calculateNoSpendStreak, detectRecurringCandidates } from "../lib/product-intelligence.mjs";
 import LanguageSwitch from "./language-switch.jsx";
 import LoadingScreen from "./loading-screen.jsx";
 import ThemeToggle from "./theme-toggle.jsx";
@@ -29,7 +31,7 @@ const SYMBOLS = { UAH: "₴", PLN: "zł", EUR: "€", USD: "$" };
 const ICONS = { Groceries: ShoppingBag, Transport: Car, Subscriptions: Music2, Coffee, Shopping: ShoppingBag, Housing: Home, Health: HeartPulse, Fun: Sparkles, Other: CircleDollarSign };
 const NAV = [
   ["overview", LayoutDashboard], ["transactions", ReceiptText], ["plan", CalendarDays],
-  ["recurring", CalendarClock], ["goals", Target], ["crypto", Bitcoin], ["analytics", BarChart3],
+  ["calendar", CalendarRange], ["recurring", CalendarClock], ["goals", Target], ["crypto", Bitcoin], ["analytics", BarChart3],
 ];
 const LOCALE_TAGS = { en: "en-US", pl: "pl-PL", uk: "uk-UA" };
 
@@ -209,7 +211,21 @@ function Donut({ rows, total, currency, hidden, locale = "en" }) {
   </div>;
 }
 
-function Overview({ transactions, metrics, budget, goals, currency, hidden, categoryBudgets, widgets, onAdd, onRepeat, onView, onCoach, locale }) {
+function SmartInsights({ insights, weekly, streak, monthProgress, currency, hidden, locale }) {
+  const copy = (item) => {
+    if (item.id === "month-change") return item.direction === "up"
+      ? locale === "pl" ? `Wydatki wzrosły o ${item.value}% względem poprzedniego miesiąca.` : locale === "uk" ? `Витрати зросли на ${item.value}% порівняно з минулим місяцем.` : `Spending is up ${item.value}% from last month.`
+      : locale === "pl" ? `Wydatki spadły o ${item.value}% względem poprzedniego miesiąca.` : locale === "uk" ? `Витрати зменшилися на ${item.value}% порівняно з минулим місяцем.` : `Spending is down ${item.value}% from last month.`;
+    if (item.id === "upcoming") return locale === "pl" ? `${item.merchant}: ${item.days ? `za ${item.days} dni` : "dzisiaj"} · ${money(item.amount, currency, hidden)}` : locale === "uk" ? `${item.merchant}: ${item.days ? `через ${item.days} дн.` : "сьогодні"} · ${money(item.amount, currency, hidden)}` : `${item.merchant} ${item.days ? `in ${item.days} days` : "today"} · ${money(item.amount, currency, hidden)}`;
+    if (item.id === "category-limit") return locale === "pl" ? `${categoryLabel(locale, item.category)} wykorzystuje ${item.percent}% limitu.` : locale === "uk" ? `${categoryLabel(locale, item.category)} використано на ${item.percent}% ліміту.` : `${categoryLabel(locale, item.category)} has used ${item.percent}% of its limit.`;
+    if (item.id === "surplus") return locale === "pl" ? `Możesz zakończyć miesiąc z zapasem ${money(item.amount, currency, hidden)}.` : locale === "uk" ? `Місяць може завершитися із запасом ${money(item.amount, currency, hidden)}.` : `You may finish the month with ${money(item.amount, currency, hidden)} spare.`;
+    return locale === "pl" ? `${item.name}: ${item.days} dni do terminu, brakuje ${money(item.amount, currency, hidden)}.` : locale === "uk" ? `${item.name}: ${item.days} дн. до терміну, бракує ${money(item.amount, currency, hidden)}.` : `${item.name}: ${item.days} days left, ${money(item.amount, currency, hidden)} to go.`;
+  };
+  const icon = (item) => item.tone === "positive" ? TrendingDown : item.tone === "warning" ? TrendingUp : item.id === "upcoming" ? CalendarClock : Sparkles;
+  return <section className="tn-intelligence"><header><div><span>{ui(locale, "SMART INSIGHTS")}</span><h3>{ui(locale, "Your money, at a glance")}</h3></div><small>{ui(locale, "Calculated locally from your records")}</small></header><div className="tn-insight-grid">{insights.map((item) => { const Icon = icon(item); return <article className={item.tone} key={item.id}><Icon size={17} /><p>{copy(item)}</p></article>; })}</div><footer><div><b>{money(weekly.current, currency, hidden)}</b><span>{ui(locale, "spent in the last 7 days")}</span><small className={weekly.change > 0 ? "warning" : "positive"}>{weekly.change > 0 ? "+" : ""}{Math.round(weekly.change)}% {ui(locale, "vs previous week")}</small></div><div><b>{streak}</b><span>{ui(locale, "no-spend day streak")}</span><small>{ui(locale, "A calm streak, not a competition")}</small></div><div><b>{monthProgress}%</b><span>{ui(locale, "of the month complete")}</span><small><Trophy size={12} /> {ui(locale, "Keep the pace steady")}</small></div></footer></section>;
+}
+
+function Overview({ transactions, allTransactions, previousMetrics, recurring, metrics, budget, goals, currency, hidden, categoryBudgets, widgets, onAdd, onRepeat, onView, onCoach, locale }) {
   const primaryGoal = goals.find((goal) => goal.status === "active");
   const planned = Object.values(categoryBudgets).reduce((sum, value) => sum + Number(value || 0), 0);
   const quickRepeat = [...transactions.reduce((merchants, item, index) => {
@@ -219,6 +235,10 @@ function Overview({ transactions, metrics, budget, goals, currency, hidden, cate
     merchants.set(key, { item: saved?.item || item, count: (saved?.count || 0) + 1, recentIndex: saved?.recentIndex ?? index });
     return merchants;
   }, new Map()).values()].sort((left, right) => right.count - left.count || left.recentIndex - right.recentIndex).slice(0, 3).map(({ item }) => item);
+  const insights = buildSmartInsights({ metrics, previousMetrics, budget, categoryBudgets, recurring, goals });
+  const weekly = buildWeeklyReport(allTransactions);
+  const streak = calculateNoSpendStreak(allTransactions);
+  const monthProgress = Math.round(metrics.elapsedDays / Math.max(metrics.daysInMonth, 1) * 100);
   const signalDetail = metrics.forecast > budget
     ? locale === "pl" ? `Zmniejsz pozostałe dzienne tempo o ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.` : locale === "uk" ? `Зменште подальші щоденні витрати на ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.` : `Reduce the remaining daily pace by ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.`
     : locale === "pl" ? `W tym tempie na koniec miesiąca powinno zostać ${money(Math.max(0, budget - metrics.forecast), currency, hidden)}.` : locale === "uk" ? `За такого темпу наприкінці місяця має залишитися ${money(Math.max(0, budget - metrics.forecast), currency, hidden)}.` : `At this pace, ${money(Math.max(0, budget - metrics.forecast), currency, hidden)} should remain at month end.`;
@@ -235,6 +255,7 @@ function Overview({ transactions, metrics, budget, goals, currency, hidden, cate
       <div><span>{ui(locale, "PLANNED")}</span><b>{money(planned, currency, hidden)}</b><small>{ui(locale, "across category envelopes")}</small></div>
     </div>
     {quickRepeat.length > 0 && <section className="tc-panel tn-quick-repeat"><span>{ui(locale, "QUICK REPEAT")}</span><div>{quickRepeat.map((item) => <button type="button" key={item.id} onClick={() => onRepeat(item)} title={ui(locale, "Open a prefilled transaction")}><span><RefreshCw size={13} /></span><b>{item.merchant}</b><small>{money(item.amount, currency, hidden)}</small></button>)}</div></section>}
+    <SmartInsights insights={insights} weekly={weekly} streak={streak} monthProgress={monthProgress} currency={currency} hidden={hidden} locale={locale} />
     <div className="tc-grid">
       {widgets.includes("pace") && <section className="tc-panel tc-spend"><header><div><span>{ui(locale, "LAST 7 DAYS")}</span><h3>{ui(locale, "Daily spending rhythm")}</h3></div><button onClick={() => onView("analytics")}>{ui(locale, "View analytics")} <ChevronRight size={14} /></button></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} locale={locale} /></section>}
       {widgets.includes("signal") && <section className="tc-panel tc-signal"><span className="tc-signal-icon"><Sparkles size={20} /></span><span>{ui(locale, "TREK SIGNAL")}</span><h3>{ui(locale, metrics.forecast > budget ? "Your current pace is above plan" : "Your current pace is inside plan")}</h3><p>{signalDetail}</p><div className="tc-signal-actions"><button onClick={() => onView("plan")}>{ui(locale, "Review plan")} <ChevronRight size={14} /></button><button onClick={onCoach}>{ui(locale, "Ask the coach")} <Sparkles size={14} /></button></div></section>}
@@ -250,9 +271,7 @@ function TransactionRow({ item, currency, hidden, checked, onCheck, onEdit, onDe
     <span className="tc-txn-icon" style={{ background: `${item.color}20`, color: item.color }}><CategoryIcon category={item.category} /></span>
     <div><b>{item.merchant}</b><small>{item.type === "income" ? ui(locale, "INCOME") : categoryLabel(locale, item.category)} · {item.date}{item.note ? ` · ${item.note}` : ""}</small></div>
     <em className={item.type === "income" ? "tc-income" : ""}>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</em>
-    {item.needsReview && <AlertTriangle size={15} className="tn-review" aria-label="Needs review" />}
-    {onEdit && <button onClick={() => onEdit(item)} aria-label="Edit transaction"><Pencil size={14} /></button>}
-    {onDelete && <button onClick={() => onDelete(item.id)} aria-label="Delete transaction"><Trash2 size={14} /></button>}
+    {(item.needsReview || onEdit || onDelete) && <span className="tn-transaction-actions">{item.needsReview && <AlertTriangle size={15} className="tn-review" aria-label="Needs review" />}{onEdit && <button onClick={() => onEdit(item)} aria-label="Edit transaction"><Pencil size={14} /></button>}{onDelete && <button onClick={() => onDelete(item.id)} aria-label="Delete transaction"><Trash2 size={14} /></button>}</span>}
   </div>;
 }
 
@@ -279,6 +298,19 @@ function TransactionsPage({ items, currency, hidden, canImport, onAdd, onEdit, o
   </section>;
 }
 
+function CalendarPage({ month, transactions, recurring, goals, metrics, currency, hidden, locale, onPost }) {
+  const events = buildFinancialTimeline({ month, transactions, recurring, goals });
+  const groups = events.reduce((result, event) => ({ ...result, [event.date]: [...(result[event.date] || []), event] }), {});
+  const today = iso(new Date());
+  const referenceDate = month === monthKey() ? today : month;
+  const nextIncome = events.find((event) => event.date >= referenceDate && event.type === "income");
+  const runwayEnd = nextIncome?.date || monthEnd(month);
+  const runwayDays = Math.max(1, Math.ceil((localDate(runwayEnd) - localDate(referenceDate)) / 86_400_000));
+  const dailyRunway = Math.max(0, metrics.safeToSpend) / runwayDays;
+  const kindLabel = (event) => event.kind === "goal" ? ui(locale, "Goal deadline") : event.kind === "recurring" ? ui(locale, "Upcoming") : ui(locale, event.type === "income" ? "Income" : "Expense");
+  return <section className="tc-page tn-calendar-page"><div className="tc-page-head"><div><span>{ui(locale, "MONEY TIMELINE")}</span><h2>{ui(locale, "Financial calendar")}</h2><p>{ui(locale, "See recorded activity, upcoming bills, income and goal deadlines together.")}</p></div></div><section className="tc-panel tn-runway"><div><span>{ui(locale, nextIncome ? "SAFE UNTIL NEXT INCOME" : "SAFE FOR THE REST OF MONTH")}</span><h3>{money(dailyRunway, currency, hidden)} <small>{ui(locale, "per day")}</small></h3><p>{nextIncome ? `${nextIncome.title} · ${nextIncome.date}` : monthLabel(month, locale)}</p></div><CalendarRange size={32} /></section><div className="tn-calendar-list">{Object.entries(groups).map(([date, dayEvents]) => <section className={`tc-panel${date === today ? " today" : ""}`} key={date}><header><time dateTime={date}><b>{localDate(date).getDate()}</b><span>{localDate(date).toLocaleDateString(LOCALE_TAGS[locale] || LOCALE_TAGS.en, { weekday: "short", month: "short" })}</span></time>{date === today && <em>{ui(locale, "Today")}</em>}</header><div>{dayEvents.map((event) => <article className={event.kind} key={event.id}><span>{event.kind === "goal" ? <Target size={16} /> : event.kind === "recurring" ? <Repeat2 size={16} /> : <CategoryIcon category={event.category} />}</span><div><b>{event.title}</b><small>{kindLabel(event)}</small></div><strong className={event.type === "income" ? "positive" : ""}>{event.kind === "goal" ? money(event.amount, currency, hidden) : `${event.type === "income" ? "+" : "−"} ${money(event.amount, currency, hidden)}`}</strong>{event.kind === "recurring" && <button onClick={() => onPost({ ...event, id: event.recurringId })}>{ui(locale, "Post")}</button>}</article>)}</div></section>)}</div></section>;
+}
+
 function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudgetSave, onCategorySave, onCopyPrevious, locale }) {
   const [total, setTotal] = useState(String(budget));
   useEffect(() => setTotal(String(budget)), [budget]);
@@ -294,12 +326,13 @@ function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudget
   </section>;
 }
 
-function RecurringPage({ items, currency, hidden, canUse, onAdd, onPost, onDelete, onUpgrade, locale }) {
+function RecurringPage({ items, suggestions, currency, hidden, canUse, onAdd, onAcceptSuggestion, onPost, onDelete, onUpgrade, locale }) {
   const expenses = items.filter((item) => item.type !== "income" && item.active);
   const total = expenses.reduce((sum, item) => sum + item.amount, 0);
   return <section className="tc-page">
     <div className="tc-page-head"><div><span>{ui(locale, "WHAT IS COMING")}</span><h2>{ui(locale, "Recurring")}</h2><p>{ui(locale, "Plan around subscriptions, bills and regular income.")}</p></div><button className="tc-action" onClick={canUse ? onAdd : onUpgrade}><Plus size={17} /> {ui(locale, canUse ? "Add recurring" : "Unlock with Plus")}</button></div>
     <div className="tc-kpis"><div><span>{ui(locale, "MONTHLY COMMITMENTS")}</span><b>{money(total, currency, hidden)}</b><small>{ui(locale, "active recurring expenses")}</small></div><div><span>{ui(locale, "ACTIVE ITEMS")}</span><b>{items.filter((item) => item.active).length}</b><small>{ui(locale, "bills and income")}</small></div><div><span>{ui(locale, "ANNUALIZED")}</span><b>{money(total * 12, currency, hidden)}</b><small>{ui(locale, "estimated recurring spend")}</small></div></div>
+    {suggestions.length > 0 && <section className="tc-panel tn-recurring-suggestions"><header><div><span>{ui(locale, "DETECTED PATTERNS")}</span><h3>{ui(locale, "Possible recurring payments")}</h3></div><small>{ui(locale, "Review before adding")}</small></header>{suggestions.slice(0, 4).map((item) => <article key={item.key}><span><Repeat2 size={17} /></span><div><b>{item.merchant}</b><small>{item.occurrences}× · {categoryLabel(locale, item.category)} · {item.confidence}% {ui(locale, "match")}</small></div><strong>{money(item.amount, currency, hidden)}</strong><button className="tc-action" onClick={() => canUse ? onAcceptSuggestion(item) : onUpgrade}>{ui(locale, canUse ? "Add recurring" : "Unlock with Plus")}</button></article>)}</section>}
     <section className="tc-panel tn-recurring-list">{items.length ? items.sort((a, b) => a.day - b.day).map((item) => <article key={item.id}><time>{item.day}</time><span className="tc-txn-icon"><CategoryIcon category={item.category} /></span><div><b>{item.merchant}</b><small>{categoryLabel(locale, item.category)} · {ui(locale, "every month")}</small></div><strong>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</strong><button onClick={() => onPost(item)} title="Post this month"><Check size={16} /></button><button onClick={() => onDelete(item.id)} title={ui(locale, "Delete")}><Trash2 size={15} /></button></article>) : <Empty icon={CalendarClock} title={ui(locale, "No recurring items yet")} copy={ui(locale, "Add rent, subscriptions, salary or other repeating entries.")} />}</section>
   </section>;
 }
@@ -579,6 +612,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   const categoryBudgets = Object.fromEntries(categoryRows.filter((row) => row.month_start === month).map((row) => [row.category, Number(row.amount)]));
   const metrics = useMemo(() => calculateMetrics(monthTransactions, budget, month, recurring, locale), [monthTransactions, budget, month, recurring, locale]);
   const previousMetrics = useMemo(() => calculateMetrics(previousTransactions, Number(budgets.find((row) => row.month_start === shiftMonth(month, -1))?.total || 0), shiftMonth(month, -1), [], locale), [previousTransactions, budgets, month, locale]);
+  const recurringCandidates = useMemo(() => detectRecurringCandidates(transactions, recurring), [transactions, recurring]);
   const notificationItems = useMemo(() => {
     if (!notificationsEnabled || month !== monthKey()) return [];
     const today = new Date().getDate();
@@ -603,7 +637,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   const createGoal = async (form) => { const result = await supabase.from("goals").insert({ user_id: user.id, name: form.name, target_amount: Number(form.target), deadline: form.deadline || null, icon: form.icon, color: form.color }).select().single(); if (result.error) return setError(result.error); setGoals((current) => [...current, fromGoal(result.data)]); return true; };
   const contribute = async (goal, amount) => { if (!(amount > 0)) return; const saved = Math.min(goal.target, goal.saved + amount); const status = saved >= goal.target ? "completed" : "active"; const result = await supabase.from("goals").update({ saved_amount: saved, status, updated_at: new Date().toISOString() }).eq("id", goal.id); if (result.error) return setError(result.error); setGoals((current) => current.map((item) => item.id === goal.id ? { ...item, saved, status } : item)); };
   const archiveGoal = async (id) => { const result = await supabase.from("goals").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id); if (result.error) return setError(result.error); setGoals((current) => current.filter((item) => item.id !== id)); };
-  const createRecurring = async (form) => { const result = await supabase.from("recurring_items").insert({ user_id: user.id, merchant: form.merchant, category: form.category, entry_type: form.type, amount: Number(form.amount), day_of_month: Number(form.day) }).select().single(); if (result.error) return setError(result.error); setRecurring((current) => [...current, fromRecurring(result.data)]); return true; };
+  const createRecurring = async (form) => { const result = await supabase.from("recurring_items").insert({ user_id: user.id, merchant: form.merchant, category: form.category, entry_type: form.type, amount: Number(form.amount), day_of_month: Number(form.day) }).select().single(); if (result.error) return setError(result.error); setRecurring((current) => [...current, fromRecurring(result.data)]); showToast(`${form.merchant} added to recurring payments.`); return true; };
   const deleteRecurring = async (id) => { const result = await supabase.from("recurring_items").delete().eq("id", id); if (result.error) return setError(result.error); setRecurring((current) => current.filter((item) => item.id !== id)); };
   const postRecurring = async (item) => { if (item.lastPostedMonth === month) return setDataError("This recurring item is already posted for the selected month."); const day = Math.min(item.day, localDate(monthEnd(month)).getDate()); const ok = await saveTransaction({ merchant: item.merchant, category: item.category, type: item.type, amount: item.amount, date: `${month.slice(0, 8)}${String(day).padStart(2, "0")}`, note: "Recurring item", tags: ["recurring"], needsReview: false }, true); if (!ok) return; const result = await supabase.from("recurring_items").update({ last_posted_month: month, updated_at: new Date().toISOString() }).eq("id", item.id); if (!result.error) { setRecurring((current) => current.map((row) => row.id === item.id ? { ...row, lastPostedMonth: month } : row)); setNotice(false); showToast(`${item.merchant} posted for ${monthLabel(month)}.`); } };
 
@@ -718,13 +752,14 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   const deleteAccount = async (confirmation) => { const response = await authenticatedFetch("/api/account", { method: "DELETE", body: JSON.stringify({ confirmation }) }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error || "Account could not be deleted."); await supabase.auth.signOut({ scope: "local" }); onSignOut(); };
   const askCoach = async (question) => { const response = await authenticatedFetch("/api/coach", { method: "POST", body: JSON.stringify({ question, summary: { month, currency, budget, spent: metrics.spending, income: metrics.earned, remaining: metrics.remaining, safe_to_spend: metrics.safeToSpend, upcoming_bills: metrics.upcoming, daily_pace: metrics.daily, month_end_forecast: metrics.forecast, pulse_score: metrics.score, category_budgets: categoryBudgets, top_categories: metrics.byCategory.slice(0, 5), goals: goals.map((goal) => ({ name: goal.name, target: goal.target, saved: goal.saved, deadline: goal.deadline })) } }) }); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Coach is unavailable."); return body.answer; };
 
-  const lockedView = (id) => ["recurring", "analytics"].includes(id) && !plus;
+  const lockedView = (id) => ["calendar", "recurring", "analytics"].includes(id) && !plus;
   const changeView = (id) => lockedView(id) ? setModal("pricing") : setView(id);
   let page;
-  if (view === "overview") page = <Overview transactions={monthTransactions} metrics={metrics} budget={budget} goals={goals} currency={currency} hidden={privacy} categoryBudgets={categoryBudgets} widgets={widgets} locale={locale} onAdd={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} onRepeat={(item) => { setEditing(null); setEntryDraft({ merchant: item.merchant, amount: String(item.amount), category: item.category, type: item.type, date: month === monthKey() ? iso(new Date()) : month, note: "", tags: item.tags || [], needsReview: false }); setModal("entry"); }} onView={changeView} onCoach={() => plus ? setModal("coach") : setModal("pricing")} />;
+  if (view === "overview") page = <Overview transactions={monthTransactions} allTransactions={transactions} previousMetrics={previousMetrics} recurring={recurring} metrics={metrics} budget={budget} goals={goals} currency={currency} hidden={privacy} categoryBudgets={categoryBudgets} widgets={widgets} locale={locale} onAdd={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} onRepeat={(item) => { setEditing(null); setEntryDraft({ merchant: item.merchant, amount: String(item.amount), category: item.category, type: item.type, date: month === monthKey() ? iso(new Date()) : month, note: "", tags: item.tags || [], needsReview: false }); setModal("entry"); }} onView={changeView} onCoach={() => plus ? setModal("coach") : setModal("pricing")} />;
   else if (view === "transactions") page = <TransactionsPage items={monthTransactions} currency={currency} hidden={privacy} canImport={plan === "Lifetime"} locale={locale} onAdd={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} onEdit={(item) => { setEntryDraft(null); setEditing(item); setModal("entry"); }} onDelete={removeTransaction} onDeleteMany={removeMany} onImport={() => setModal(plan === "Lifetime" ? "statement" : "pricing")} />;
+  else if (view === "calendar") page = <CalendarPage month={month} transactions={monthTransactions} recurring={recurring} goals={goals} metrics={metrics} currency={currency} hidden={privacy} locale={locale} onPost={postRecurring} />;
   else if (view === "plan") page = <PlanPage budget={budget} categoryBudgets={categoryBudgets} metrics={metrics} currency={currency} hidden={privacy} locale={locale} onBudgetSave={saveBudget} onCategorySave={saveCategory} onCopyPrevious={copyPrevious} />;
-  else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} locale={locale} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
+  else if (view === "recurring") page = <RecurringPage items={recurring} suggestions={recurringCandidates} currency={currency} hidden={privacy} canUse={plus} locale={locale} onAdd={() => setModal("recurring")} onAcceptSuggestion={createRecurring} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
   else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} locale={locale} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
   else if (view === "crypto") page = <CryptoPage holdings={cryptoHoldings} prices={cryptoPrices} history={cryptoHistory} period={cryptoPeriod} loading={cryptoLoading} currency={currency} hidden={privacy} plan={plan} locale={locale} onPeriod={setCryptoPeriod} onAdd={() => setModal("crypto")} onDelete={deleteCrypto} onUpgrade={() => setModal("pricing")} onRefresh={() => setCryptoRefresh((value) => value + 1)} />;
   else if (view === "analytics") page = <AnalyticsPage metrics={metrics} previousMetrics={previousMetrics} categoryBudgets={categoryBudgets} currency={currency} hidden={privacy} locale={locale} />;
@@ -733,7 +768,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   if (loading) return <LoadingScreen locale={locale} />;
   return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i><ArrowUpRight size={17} /></i> Trek</button><small>{copy.shell.personal}</small>{localizedNav.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} {copy.shell.plan}</button><button onClick={() => setView("settings")}><Settings size={17} /> {copy.shell.settings}</button>{!nativeApp && <button onClick={onExit}><ArrowLeft size={16} /> {copy.shell.back}</button>}<button onClick={onSignOut}><LogOut size={17} /> {copy.shell.signout}</button></div></aside>
     <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{!["settings", "crypto"].includes(view) && <MonthControl value={month} onChange={setMonth} locale={locale} />}</div><div className="tc-top-actions"><ThemeToggle theme={theme} onChange={onTheme} locale={locale} /><button className="tn-notification-button" onClick={() => setNotice(!notice)} aria-label={`Open notifications${notificationItems.length ? `, ${notificationItems.length} unread` : ""}`}><Bell size={18} />{notificationItems.length > 0 && <i>{notificationItems.length}</i>}</button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <NotificationCenter items={notificationItems} currency={currency} hidden={privacy} copy={copy.notices} onPost={postRecurring} onSelect={(nextView) => { setView(nextView); setNotice(false); }} />}</header>{!online && <div className="tn-offline" role="status"><WifiOff size={15} /><span>{copy.shell.offline}</span></div>}{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
-    {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>{copy.nav[0]}</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>{copy.shell.activity}</span></button><button className="tm-add" onClick={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>{copy.shell.shortPlan}</span></button><button className={mobileNav || ["recurring", "goals", "crypto", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>{copy.shell.more}</span></button></nav>}
+    {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>{copy.nav[0]}</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>{copy.shell.activity}</span></button><button className="tm-add" onClick={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>{copy.shell.shortPlan}</span></button><button className={mobileNav || ["calendar", "recurring", "goals", "crypto", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>{copy.shell.more}</span></button></nav>}
     {mobileNav && createPortal(<div className="tm-menu-layer" role="presentation"><button className="tm-menu-scrim" onClick={() => setMobileNav(false)} aria-label="Close navigation" /><div className="tc-mobile-menu tm-menu-sheet" role="dialog" aria-label="More navigation">{localizedNav.map(([id, label, Icon]) => <button key={id} className={view === id ? "on" : ""} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<button className={view === "settings" ? "on" : ""} onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={17} /> {copy.shell.settings}</button></div></div>, document.body)}
     {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : entryDraft} isEditing={Boolean(editing?.id)} month={month} categoryRules={merchantRules} copy={copy.entry} locale={locale} onClose={() => { setModal(null); setEntryDraft(null); }} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "goal" && <GoalModal locale={locale} onClose={() => setModal(null)} onSave={createGoal} />}
