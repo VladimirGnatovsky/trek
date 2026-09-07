@@ -6,6 +6,8 @@ import "./index.css";
 import TrekWeb from "./webapp.jsx";
 import "./polish.css";
 import "./mobile.css";
+// Theme overrides must stay last: polish/mobile contain the dark design defaults.
+import "./theme.css";
 
 const nativeApp = Capacitor.isNativePlatform() || new URLSearchParams(window.location.search).has("native-preview");
 document.body.classList.toggle("trek-native", nativeApp);

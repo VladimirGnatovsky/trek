@@ -34,7 +34,6 @@ import { PUBLIC_COPY } from "./public-copy.js";
 import LanguageSwitch from "./language-switch.jsx";
 import LoadingScreen from "./loading-screen.jsx";
 import ThemeToggle from "./theme-toggle.jsx";
-import "./theme.css";
 
 const Cabinet = lazy(() => import("./cabinet-next.jsx"));
 const AuthScreen = lazy(() => import("./auth.jsx"));
