@@ -23,14 +23,23 @@ const MIME = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
 };
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+};
 
 const sendJson = (res, status, body) => {
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   });
   res.end(JSON.stringify(body));
 };
@@ -188,6 +197,25 @@ const adminUsers = async (req, res, url) => {
   } catch (error) {
     console.error("Admin membership endpoint failed", error.message);
     return sendJson(res, error.status || 500, { error: error.message || "Membership could not be updated." });
+  }
+};
+
+const deleteAccount = async (req, res) => {
+  try {
+    const user = await getUser(req.headers.authorization);
+    if (!user) return sendJson(res, 401, { error: "Please sign in before deleting your account." });
+    const { confirmation } = await getBody(req);
+    if (confirmation !== "DELETE") return sendJson(res, 400, { error: "Type DELETE to confirm account removal." });
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_SECRET_KEY;
+    if (!url || !key) return sendJson(res, 503, { error: "Account deletion is not configured." });
+    const response = await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: "DELETE", headers: { apikey: key, Authorization: `Bearer ${key}` } });
+    if (!response.ok) throw Object.assign(new Error("Supabase could not delete this account."), { status: response.status });
+    console.info("Account deleted by its owner", user.id);
+    return sendJson(res, 200, { deleted: true });
+  } catch (error) {
+    console.error("Account deletion failed", error.message);
+    return sendJson(res, error.status || 500, { error: error.message || "Account could not be deleted." });
   }
 };
 
@@ -670,6 +698,11 @@ const cryptoHistory = async (url, res) => {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) return sendJson(res, 204, {});
+  if (url.pathname === "/api/health") return sendJson(res, 200, { ok: true, service: "trek", time: new Date().toISOString() });
+  if (url.pathname === "/api/account") {
+    if (req.method !== "DELETE") return sendJson(res, 405, { error: "Method not allowed." });
+    return deleteAccount(req, res);
+  }
   if (url.pathname === "/api/stripe/webhook") {
     if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
     return stripeWebhook(req, res);
@@ -715,13 +748,14 @@ const server = createServer(async (req, res) => {
       VITE_CHECKOUT_LIFETIME_URL: process.env.VITE_CHECKOUT_LIFETIME_URL || "",
       VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || process.env.PUBLIC_APP_URL || "",
     };
-    res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" });
+    res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" });
     return res.end(`window.__TREK_ENV__ = ${JSON.stringify(config).replace(/</g, "\\u003c")};`);
   }
   const requested = path.normalize(path.join(root, decodeURIComponent(url.pathname)));
   const candidate = requested.startsWith(root) ? requested : root;
   const file = existsSync(candidate) && (await stat(candidate)).isFile() ? candidate : path.join(root, "index.html");
-  res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "text/html; charset=utf-8" });
+  const immutable = file.includes(`${path.sep}assets${path.sep}`);
+  res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": MIME[path.extname(file)] || "text/html; charset=utf-8", "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-cache" });
   createReadStream(file).pipe(res);
 });
 

@@ -1,0 +1,12 @@
+{
+  "name": "Trek — Money made clear",
+  "short_name": "Trek",
+  "description": "Track spending, plan your month and keep your money moving at the right pace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#00e5a0",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

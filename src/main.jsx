@@ -10,3 +10,7 @@ import "./mobile.css";
 const nativeApp = Capacitor.isNativePlatform() || new URLSearchParams(window.location.search).has("native-preview");
 document.body.classList.toggle("trek-native", nativeApp);
 createRoot(document.getElementById("root")).render(<TrekWeb nativeApp={nativeApp} />);
+
+if (!nativeApp && import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch((error) => console.warn("Trek offline shell is unavailable", error)));
+}
