@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,6 +29,8 @@ import "./responsive.css";
 import Cabinet from "./cabinet-next.jsx";
 import AuthScreen from "./auth.jsx";
 import { supabase } from "./supabase.js";
+import { CookieNotice, LegalCenter } from "./legal.jsx";
+import mobileGuideUrl from "../assets/trek-mobile-guide.webm?url";
 
 const seed = [
   {
@@ -225,7 +228,17 @@ function FAQ() {
   );
 }
 
-function Landing({ onOpen, session, account }) {
+function DemoVideo({ onClose }) {
+  useEffect(() => {
+    const close = (event) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+  return createPortal(<div className="tw-video-layer" role="presentation" onMouseDown={onClose}><section className="tw-video-modal" role="dialog" aria-modal="true" aria-label="Trek mobile app guide" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="tw-eyebrow"><i /> TREK IN ACTION</span><h2>See how Trek works.</h2></div><button onClick={onClose} aria-label="Close video"><X size={21} /></button></header><video src={mobileGuideUrl} controls autoPlay playsInline preload="metadata">Your browser does not support embedded video.</video></section></div>, document.body);
+}
+
+function Landing({ onOpen, session, account, onLegal }) {
+  const [showVideo, setShowVideo] = useState(false);
   return (
     <div className="tw-landing">
       <header className="tw-nav">
@@ -280,11 +293,7 @@ function Landing({ onOpen, session, account }) {
               </button>
               <button
                 className="tw-play"
-                onClick={() =>
-                  document
-                    .getElementById("product")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
+                onClick={() => setShowVideo(true)}
               >
                 <span><Play size={13} fill="currentColor" /></span> See How It Works
               </button>
@@ -403,7 +412,7 @@ function Landing({ onOpen, session, account }) {
           </div>
         </section>
         <section className="tw-pricing" id="pricing">
-          <div>
+          <div className="tw-pricing-intro">
             <span className="tw-eyebrow">
               <i /> SIMPLE PRICING
             </span>
@@ -413,26 +422,45 @@ function Landing({ onOpen, session, account }) {
               Go deeper when ready.
             </h2>
             <p>
-              Start without a card. Upgrade only when you want sync and more
-              powerful insights.
+              Start without a card. Upgrade only when deeper planning and
+              automation become useful.
             </p>
           </div>
-          <div className="tw-price-card">
-            <div>
-              <span>START</span>
-              <b>
-                0 € <small>/ forever</small>
-              </b>
-            </div>
-            <ul>
-              <li><Check size={14} /> Manual expenses and income</li>
-              <li><Check size={14} /> Monthly plan</li>
-              <li><Check size={14} /> Goals and reminders</li>
-              <li><Check size={14} /> Offline on your device</li>
-            </ul>
-            <button onClick={onOpen}>
-              Start For Free <ArrowRight size={16} />
-            </button>
+          <div className="tw-price-grid">
+            <article className="tw-price-card">
+              <div><span>START</span><b>0 € <small>/ forever</small></b></div>
+              <p>Get a clear monthly baseline.</p>
+              <ul>
+                <li><Check size={14} /> Manual tracking and receipt scan</li>
+                <li><Check size={14} /> Monthly plan and one goal</li>
+                <li><Check size={14} /> Two crypto positions</li>
+                <li><Check size={14} /> Secure cloud account</li>
+              </ul>
+              <button onClick={onOpen}>{session ? "Open account" : "Start free"} <ArrowRight size={16} /></button>
+            </article>
+            <article className="tw-price-card featured">
+              <em>MOST POPULAR</em>
+              <div><span>PLUS</span><b>6 € <small>/ month</small></b></div>
+              <p>Automate the routine and see deeper patterns.</p>
+              <ul>
+                <li><Check size={14} /> Recurring bills and unlimited goals</li>
+                <li><Check size={14} /> Advanced interactive analytics</li>
+                <li><Check size={14} /> Trek Coach and data export</li>
+                <li><Check size={14} /> Unlimited crypto portfolio</li>
+              </ul>
+              <button onClick={onOpen}>{session ? "Manage plan" : "Choose Plus"} <ArrowRight size={16} /></button>
+            </article>
+            <article className="tw-price-card">
+              <div><span>LIFETIME</span><b>149 € <small>/ once</small></b></div>
+              <p>Own every Trek feature with one payment.</p>
+              <ul>
+                <li><Check size={14} /> Every Plus feature</li>
+                <li><Check size={14} /> CSV and PDF bank import</li>
+                <li><Check size={14} /> Historical currency conversion</li>
+                <li><Check size={14} /> Lifetime access</li>
+              </ul>
+              <button onClick={onOpen}>{session ? "Manage plan" : "Choose Lifetime"} <ArrowRight size={16} /></button>
+            </article>
           </div>
         </section>
         <section className="tw-info-strip">
@@ -465,8 +493,10 @@ function Landing({ onOpen, session, account }) {
           <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <p>Your money. Your pace. Your data.</p>
-        <span>© 2026 Trek · <a href="mailto:support@trekmoney.pl">Support</a></span>
+        <span className="tw-footer-links">© 2026 Trek · <button onClick={() => onLegal("privacy")}>Privacy</button> · <button onClick={() => onLegal("cookies")}>Cookies</button> · <button onClick={() => onLegal("terms")}>Terms</button> · <a href="mailto:support@trekmoney.pl">Support</a></span>
       </footer>
+      <CookieNotice onOpenPolicy={() => onLegal("cookies")} />
+      {showVideo && <DemoVideo onClose={() => setShowVideo(false)} />}
     </div>
   );
 }
@@ -681,6 +711,7 @@ export default function TrekWeb({ nativeApp = false }) {
   const [session, setSession] = useState(undefined);
   const [screen, setScreen] = useState(nativeApp ? "workspace" : "landing");
   const [landingAccount, setLandingAccount] = useState({ name: "M", avatarUrl: "" });
+  const [legalDocument, setLegalDocument] = useState(null);
   useEffect(() => {
     if (!supabase) {
       setSession(null);
@@ -760,8 +791,8 @@ export default function TrekWeb({ nativeApp = false }) {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (!nativeApp && screen === "landing") return <Landing onOpen={openAccount} session={session} account={landingAccount} />;
-  if (!session) return <AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} />;
+  if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} /><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!session) return <><AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   return (
     <Cabinet
       nativeApp={nativeApp}

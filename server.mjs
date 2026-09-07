@@ -21,6 +21,7 @@ const MIME = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".webm": "video/webm",
   ".ico": "image/x-icon",
 };
 const SECURITY_HEADERS = {
@@ -747,6 +748,9 @@ const server = createServer(async (req, res) => {
       VITE_CHECKOUT_PLUS_URL: process.env.VITE_CHECKOUT_PLUS_URL || "",
       VITE_CHECKOUT_LIFETIME_URL: process.env.VITE_CHECKOUT_LIFETIME_URL || "",
       VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || process.env.PUBLIC_APP_URL || "",
+      VITE_LEGAL_CONTROLLER_NAME: process.env.VITE_LEGAL_CONTROLLER_NAME || "",
+      VITE_LEGAL_CONTROLLER_ADDRESS: process.env.VITE_LEGAL_CONTROLLER_ADDRESS || "",
+      VITE_PRIVACY_EMAIL: process.env.VITE_PRIVACY_EMAIL || "",
     };
     res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" });
     return res.end(`window.__TREK_ENV__ = ${JSON.stringify(config).replace(/</g, "\\u003c")};`);

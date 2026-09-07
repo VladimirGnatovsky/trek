@@ -11,14 +11,16 @@ import {
 import { supabase } from "./supabase.js";
 import "./auth.css";
 import "./auth-extra.css";
+import { LEGAL_VERSION } from "./legal.jsx";
 
-export default function AuthScreen({ onBack }) {
+export default function AuthScreen({ onBack, onLegal }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const configured = Boolean(supabase);
 
   const submit = async (event) => {
@@ -36,7 +38,7 @@ export default function AuthScreen({ onBack }) {
         password,
         options: {
           emailRedirectTo: redirectTo,
-          data: { full_name: name.trim() },
+          data: { full_name: name.trim(), legal_accepted_at: new Date().toISOString(), legal_version: LEGAL_VERSION },
         },
       });
       if (!result.error)
@@ -136,7 +138,8 @@ export default function AuthScreen({ onBack }) {
               />
             </label>
           )}
-          <button disabled={!configured || busy} className="ta-submit">
+          {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>I agree to the <button type="button" onClick={() => onLegal("terms")}>Terms</button> and acknowledge the <button type="button" onClick={() => onLegal("privacy")}>Privacy Notice</button>.</span></label>}
+          <button disabled={!configured || busy || (mode === "signup" && !legalAccepted)} className="ta-submit">
             {busy
               ? "Please wait…"
               : mode === "signup"
