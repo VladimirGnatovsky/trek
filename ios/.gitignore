@@ -1,0 +1,18 @@
+App/build
+App/Pods
+App/output
+App/App/public
+DerivedData
+xcuserdata
+
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
+
+# Generated Config files
+App/App/capacitor.config.json
+App/App/config.xml
+
+# Finder conflict copies are not part of the Xcode project.
+App/App/public 2
+App/App/config 2.xml
+capacitor-cordova-ios-plugins 2

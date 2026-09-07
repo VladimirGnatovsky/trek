@@ -46,7 +46,7 @@ const money = (value, currency, hidden = false) => hidden
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const apiUrl = (path) => {
   const configured = window.__TREK_ENV__?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
-  const nativeOrigin = window.location.protocol === "capacitor:" ? "https://trekapp.up.railway.app" : "";
+  const nativeOrigin = window.location.protocol === "capacitor:" ? "https://trekmoney.pl" : "";
   return `${String(configured || nativeOrigin).replace(/\/$/, "")}${path}`;
 };
 

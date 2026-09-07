@@ -11,15 +11,15 @@ Supabase just like manual entries.
 
 Deploy the current repository to Railway first. Receipt recognition calls:
 
-`https://trekapp.up.railway.app/api/receipt`
+`https://trekmoney.pl/api/receipt`
 
 Railway must contain `GEMINI_API_KEY`, `GEMINI_MODEL`, the Supabase variables,
 Stripe variables and `PUBLIC_APP_URL`. `VITE_API_BASE_URL` is optional and defaults
 to `PUBLIC_APP_URL` on the hosted build.
 
-Run the latest `supabase/schema.sql` once before using statement import. It adds
-the original currency, historical exchange-rate metadata and duplicate-import
-protection to transactions.
+Run the latest `supabase/schema.sql` once before using the newest features. It
+adds import provenance, duplicate protection and personal merchant-category
+rules.
 
 ## Preview the native layout
 
@@ -34,10 +34,13 @@ browser developer tools. Receipt API calls require the Railway deployment.
 ## Copy the app into Xcode
 
 ```bash
-npm run build
-npx cap copy ios
-npx cap open ios
+npm install
+npm run ios
 ```
+
+The native Xcode project is committed to Git; generated web assets and CocoaPods
+remain ignored. If CocoaPods needs refreshing, run `npx cap sync ios` before
+opening `ios/App/App.xcworkspace`.
 
 In Xcode choose the App target, set your Team under Signing & Capabilities, select
 an iPhone or simulator and press Run. Camera and photo-library descriptions are
