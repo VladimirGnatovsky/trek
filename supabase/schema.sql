@@ -123,6 +123,17 @@ create table if not exists public.crypto_holdings (
 );
 create index if not exists crypto_holdings_user_idx on public.crypto_holdings (user_id, updated_at desc);
 
+-- Personal categorization memory. The client normalizes the merchant name and
+-- reuses the latest category selected by the account owner.
+create table if not exists public.merchant_category_rules (
+  user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  merchant_key text not null check (char_length(merchant_key) between 1 and 120),
+  display_name text not null default '',
+  category text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, merchant_key)
+);
+
 -- Membership is deliberately separate from the editable profile. The browser can read
 -- it, but only a payment webhook using a server-side key may change it.
 create table if not exists public.subscriptions (
@@ -143,6 +154,7 @@ alter table public.category_budgets enable row level security;
 alter table public.goals enable row level security;
 alter table public.recurring_items enable row level security;
 alter table public.crypto_holdings enable row level security;
+alter table public.merchant_category_rules enable row level security;
 
 drop policy if exists "Users manage own profile" on public.profiles;
 create policy "Users manage own profile" on public.profiles
@@ -170,6 +182,9 @@ create policy "Users manage own recurring items" on public.recurring_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "Users manage own crypto holdings" on public.crypto_holdings;
 create policy "Users manage own crypto holdings" on public.crypto_holdings
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage own merchant rules" on public.merchant_category_rules;
+create policy "Users manage own merchant rules" on public.merchant_category_rules
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- New accounts receive their own rows automatically. The SECURITY DEFINER function is

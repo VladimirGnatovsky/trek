@@ -188,7 +188,7 @@ function FAQ() {
     ],
     [
       "Is Trek ready for real payments and accounts?",
-      "The public preview is not a payment system. Secure accounts and checkout require a server-side identity provider and a verified payment-provider account.",
+      "Yes. Accounts are secured through Supabase and paid plans use Stripe Checkout and the Stripe customer portal. Payment details are handled by Stripe, not stored by Trek.",
     ],
   ];
   return (
@@ -465,7 +465,7 @@ function Landing({ onOpen, session, account }) {
           <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <p>Your money. Your pace. Your data.</p>
-        <span>© 2026 Trek</span>
+        <span>© 2026 Trek · <a href="mailto:support@trekmoney.pl">Support</a></span>
       </footer>
     </div>
   );

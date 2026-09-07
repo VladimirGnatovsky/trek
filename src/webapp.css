@@ -13,3 +13,6 @@
 
 .tw-loading{min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#00e5a0;font:14px var(--mono)}
 .tw-trust span,.tw-price-card li{display:flex;align-items:center;gap:8px}.tw-trust svg,.tw-price-card li svg{flex:0 0 auto}.tw-price-card li:before{content:none!important}
+.tw-landing footer a{color:inherit}.tw-landing footer a:hover{color:#00e5a0}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #00e5a0!important;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
