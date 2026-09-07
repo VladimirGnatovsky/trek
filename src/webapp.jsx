@@ -13,6 +13,7 @@ import {
   CircleHelp,
   CreditCard,
   Download,
+  Globe2,
   LayoutDashboard,
   Menu,
   Plus,
@@ -29,6 +30,8 @@ import "./responsive.css";
 import { supabase } from "./supabase.js";
 import { CookieNotice, LegalCenter } from "./legal.jsx";
 import mobileGuideUrl from "../assets/trek-mobile-guide.webm?url";
+import { preferredLocale } from "../lib/locale.mjs";
+import { PUBLIC_COPY } from "./public-copy.js";
 
 const Cabinet = lazy(() => import("./cabinet-next.jsx"));
 const AuthScreen = lazy(() => import("./auth.jsx"));
@@ -113,7 +116,7 @@ function ScoreRing({ score = 78 }) {
   );
 }
 
-function ProductPreview({ onOpen }) {
+function ProductPreview({ onOpen, copy }) {
   return (
     <div className="tw-browser">
       <div className="tw-browserbar">
@@ -124,7 +127,7 @@ function ProductPreview({ onOpen }) {
         </span>
         <em>app.trek</em>
         <button onClick={onOpen}>
-          Open dashboard <ArrowRight size={14} />
+          {copy.open} <ArrowRight size={14} />
         </button>
       </div>
       <div className="tw-previewbody">
@@ -171,42 +174,21 @@ function ProductPreview({ onOpen }) {
   );
 }
 
-function FAQ() {
+function FAQ({ copy }) {
   const [open, setOpen] = useState(0);
-  const items = [
-    [
-      "What does “safe to spend” mean?",
-      "It is the amount you can use today after your monthly plan, regular costs and active goals are taken into account.",
-    ],
-    [
-      "Do I need to connect a bank account?",
-      "No. Trek starts with manual expenses and income, so your banking credentials are never requested.",
-    ],
-    [
-      "Can I change currency later?",
-      "Yes. Choose UAH, PLN, EUR or USD in Settings. Your active currency can be changed at any time.",
-    ],
-    [
-      "What will a membership unlock?",
-      "Start covers daily tracking. Plus is designed for advanced insights, exports and cloud sync; Lifetime includes every Plus feature permanently.",
-    ],
-    [
-      "Is Trek ready for real payments and accounts?",
-      "Yes. Accounts are secured through Supabase and paid plans use Stripe Checkout and the Stripe customer portal. Payment details are handled by Stripe, not stored by Trek.",
-    ],
-  ];
+  const items = copy.items;
   return (
     <section className="tw-faq" id="faq">
       <div className="tw-section-title">
         <span className="tw-eyebrow">
-          <i /> QUESTIONS, ANSWERED
+          <i /> {copy.eyebrow}
         </span>
         <h2>
-          Clear money needs
+          {copy.lines[0]}
           <br />
-          <em>clear answers.</em>
+          <em>{copy.lines[1]}</em>
         </h2>
-        <p>Everything you need to know before starting your first month.</p>
+        <p>{copy.body}</p>
       </div>
       <div className="tw-faq-list">
         {items.map(([q, a], i) => (
@@ -229,17 +211,18 @@ function FAQ() {
   );
 }
 
-function DemoVideo({ onClose }) {
+function DemoVideo({ onClose, copy }) {
   useEffect(() => {
     const close = (event) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
-  return createPortal(<div className="tw-video-layer" role="presentation" onMouseDown={onClose}><section className="tw-video-modal" role="dialog" aria-modal="true" aria-label="Trek mobile app guide" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="tw-eyebrow"><i /> TREK IN ACTION</span><h2>See how Trek works.</h2></div><button onClick={onClose} aria-label="Close video"><X size={21} /></button></header><video src={mobileGuideUrl} controls autoPlay playsInline preload="metadata">Your browser does not support embedded video.</video></section></div>, document.body);
+  return createPortal(<div className="tw-video-layer" role="presentation" onMouseDown={onClose}><section className="tw-video-modal" role="dialog" aria-modal="true" aria-label={copy.title} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="tw-eyebrow"><i /> {copy.eyebrow}</span><h2>{copy.title}</h2></div><button onClick={onClose} aria-label="Close video"><X size={21} /></button></header><video src={mobileGuideUrl} controls autoPlay playsInline preload="metadata">Your browser does not support embedded video.</video></section></div>, document.body);
 }
 
-function Landing({ onOpen, session, account, onLegal }) {
+function Landing({ onOpen, session, account, onLegal, locale, onLocale }) {
   const [showVideo, setShowVideo] = useState(false);
+  const copy = PUBLIC_COPY[locale];
   return (
     <div className="tw-landing">
       <header className="tw-nav">
@@ -247,12 +230,13 @@ function Landing({ onOpen, session, account, onLegal }) {
           <span><ArrowUpRight size={18} /></span> Trek
         </a>
         <nav>
-          <a href="#product">Product</a>
-          <a href="#how">How It Works</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+          <a href="#product">{copy.nav[0]}</a>
+          <a href="#how">{copy.nav[1]}</a>
+          <a href="#pricing">{copy.nav[2]}</a>
+          <a href="#faq">{copy.nav[3]}</a>
         </nav>
         <div>
+          <label className="tw-language"><Globe2 size={15} /><span className="sr-only">Language</span><select value={locale} onChange={(event) => onLocale(event.target.value)} aria-label="Language"><option value="en">EN</option><option value="pl">PL</option><option value="uk">UA</option></select></label>
           {session ? (
             <button className="tw-account-btn tw-account-avatar-btn" onClick={onOpen} aria-label="Open my account" title="Open my account">
               {account.avatarUrl
@@ -262,10 +246,10 @@ function Landing({ onOpen, session, account, onLegal }) {
           ) : (
             <>
               <button className="tw-login" onClick={onOpen}>
-                Log In
+                {copy.login}
               </button>
               <button className="tw-dark-btn" onClick={onOpen}>
-                Start Free <ArrowRight size={15} />
+                {copy.start} <ArrowRight size={15} />
               </button>
             </>
           )}
@@ -275,32 +259,31 @@ function Landing({ onOpen, session, account, onLegal }) {
         <section className="tw-hero">
           <div className="tw-hero-copy">
             <span className="tw-eyebrow">
-              <i /> NO BANK LOGINS. NO NOISE.
+              <i /> {copy.hero.eyebrow}
             </span>
             <h1>
-              Money, made
+              {copy.hero.lines[0]}
               <br />
-              clear.
+              {copy.hero.lines[1]}
               <br />
-              <mark>Stay in control.</mark>
+              <mark>{copy.hero.lines[2]}</mark>
             </h1>
             <p>
-              Trek does more than track spending. It shows what is safe to spend
-              today without breaking the month.
+              {copy.hero.body}
             </p>
             <div className="tw-hero-actions">
               <button className="tw-primary" onClick={onOpen}>
-                Take Control <ArrowRight size={18} />
+                {copy.hero.primary} <ArrowRight size={18} />
               </button>
               <button
                 className="tw-play"
                 onClick={() => setShowVideo(true)}
               >
-                <span><Play size={13} fill="currentColor" /></span> See How It Works
+                <span><Play size={13} fill="currentColor" /></span> {copy.hero.demo}
               </button>
             </div>
             <div className="tw-trust">
-              <span><ShieldCheck size={14} /> Your Data Stays Yours</span>
+              <span><ShieldCheck size={14} /> {copy.hero.private}</span>
               <span><CircleDollarSign size={14} /> UAH · PLN · EUR · USD</span>
             </div>
           </div>
@@ -339,165 +322,121 @@ function Landing({ onOpen, session, account, onLegal }) {
         </section>
         <section className="tw-proof">
           <span>
-            NOT A SPREADSHEET. NOT A BANK. YOUR DAILY FINANCIAL SIGNAL.
+            {copy.proof[0]}
           </span>
           <div>
             <b>3 min</b>
-            <small>to get started</small>
+            <small>{copy.proof[1]}</small>
           </div>
           <div>
             <b>0</b>
-            <small>bank logins</small>
+            <small>{copy.proof[2]}</small>
           </div>
           <div>
             <b>4</b>
-            <small>currencies included</small>
+            <small>{copy.proof[3]}</small>
           </div>
         </section>
         <section className="tw-product" id="product">
           <div className="tw-section-title">
             <span className="tw-eyebrow">
-              <i /> INSIDE TREK
+              <i /> {copy.product.eyebrow}
             </span>
             <h2>
-              One screen.
+              {copy.product.lines[0]}
               <br />
-              <em>One clear next move.</em>
+              <em>{copy.product.lines[1]}</em>
             </h2>
             <p>
-              See your whole picture in seconds, then know exactly what to
-              change this month.
+              {copy.product.body}
             </p>
           </div>
-          <ProductPreview onOpen={onOpen} />
+          <ProductPreview onOpen={onOpen} copy={copy.product} />
         </section>
         <section className="tw-how" id="how">
           <div className="tw-section-title">
             <span className="tw-eyebrow">
-              <i /> LESS ADMIN
+              <i /> {copy.how.eyebrow}
             </span>
             <h2>
-              Less counting.
+              {copy.how.lines[0]}
               <br />
-              <em>More direction.</em>
+              <em>{copy.how.lines[1]}</em>
             </h2>
           </div>
           <div className="tw-steps">
             <article>
               <span>01</span>
               <Wallet size={24} />
-              <h3>Add it in five seconds</h3>
-              <p>
-                Type “coffee 85” or scan a receipt. Trek turns it into a clear
-                record.
-              </p>
+              <h3>{copy.how.steps[0][0]}</h3>
+              <p>{copy.how.steps[0][1]}</p>
             </article>
             <article>
               <span>02</span>
               <BarChart3 size={24} />
-              <h3>See your actual pace</h3>
-              <p>
-                Not just what you spent — whether your plan will last to the end
-                of the month.
-              </p>
+              <h3>{copy.how.steps[1][0]}</h3>
+              <p>{copy.how.steps[1][1]}</p>
             </article>
             <article>
               <span>03</span>
               <Sparkles size={24} />
-              <h3>Act on a signal</h3>
-              <p>
-                A concrete number: what to trim and how much it gives back to
-                you.
-              </p>
+              <h3>{copy.how.steps[2][0]}</h3>
+              <p>{copy.how.steps[2][1]}</p>
             </article>
           </div>
         </section>
         <section className="tw-pricing" id="pricing">
           <div className="tw-pricing-intro">
             <span className="tw-eyebrow">
-              <i /> SIMPLE PRICING
+              <i /> {copy.pricing.eyebrow}
             </span>
             <h2>
-              Build the habit first.
+              {copy.pricing.lines[0]}
               <br />
-              Go deeper when ready.
+              {copy.pricing.lines[1]}
             </h2>
             <p>
-              Start without a card. Upgrade only when deeper planning and
-              automation become useful.
+              {copy.pricing.body}
             </p>
           </div>
           <div className="tw-price-grid">
-            <article className="tw-price-card">
-              <div><span>START</span><b>0 € <small>/ forever</small></b></div>
-              <p>Get a clear monthly baseline.</p>
-              <ul>
-                <li><Check size={14} /> Manual tracking and receipt scan</li>
-                <li><Check size={14} /> Monthly plan and one goal</li>
-                <li><Check size={14} /> Two crypto positions</li>
-                <li><Check size={14} /> Secure cloud account</li>
-              </ul>
-              <button onClick={onOpen}>{session ? "Open account" : "Start free"} <ArrowRight size={16} /></button>
-            </article>
-            <article className="tw-price-card featured">
-              <em>MOST POPULAR</em>
-              <div><span>PLUS</span><b>6 € <small>/ month</small></b></div>
-              <p>Automate the routine and see deeper patterns.</p>
-              <ul>
-                <li><Check size={14} /> Recurring bills and unlimited goals</li>
-                <li><Check size={14} /> Advanced interactive analytics</li>
-                <li><Check size={14} /> Trek Coach and data export</li>
-                <li><Check size={14} /> Unlimited crypto portfolio</li>
-              </ul>
-              <button onClick={onOpen}>{session ? "Manage plan" : "Choose Plus"} <ArrowRight size={16} /></button>
-            </article>
-            <article className="tw-price-card">
-              <div><span>LIFETIME</span><b>149 € <small>/ once</small></b></div>
-              <p>Own every Trek feature with one payment.</p>
-              <ul>
-                <li><Check size={14} /> Every Plus feature</li>
-                <li><Check size={14} /> CSV and PDF bank import</li>
-                <li><Check size={14} /> Historical currency conversion</li>
-                <li><Check size={14} /> Lifetime access</li>
-              </ul>
-              <button onClick={onOpen}>{session ? "Manage plan" : "Choose Lifetime"} <ArrowRight size={16} /></button>
-            </article>
+            {copy.pricing.cards.map(([name, price, interval, description, features, cta], index) => <article key={name} className={`tw-price-card${index === 1 ? " featured" : ""}`}>{index === 1 && <em>{copy.pricing.popular}</em>}<div><span>{name}</span><b>{price} <small>{interval}</small></b></div><p>{description}</p><ul>{features.map((feature) => <li key={feature}><Check size={14} /> {feature}</li>)}</ul><button onClick={onOpen}>{session ? (index === 0 ? copy.pricing.open : copy.pricing.manage) : cta} <ArrowRight size={16} /></button></article>)}
           </div>
         </section>
         <section className="tw-info-strip">
           <article>
             <ShieldCheck size={23} />
             <div>
-              <b>Private by design</b>
-              <span>No bank credentials. Clear data boundaries.</span>
+              <b>{copy.info[0][0]}</b>
+              <span>{copy.info[0][1]}</span>
             </div>
           </article>
           <article>
             <BarChart3 size={23} />
             <div>
-              <b>Signals, not noise</b>
-              <span>Trend and category views that lead to one next move.</span>
+              <b>{copy.info[1][0]}</b>
+              <span>{copy.info[1][1]}</span>
             </div>
           </article>
           <article>
             <Target size={23} />
             <div>
-              <b>Built for real goals</b>
-              <span>Keep daily decisions aligned with what matters.</span>
+              <b>{copy.info[2][0]}</b>
+              <span>{copy.info[2][1]}</span>
             </div>
           </article>
         </section>
-        <FAQ />
+        <FAQ copy={copy.faq} />
       </main>
       <footer>
         <a className="tw-logo" href="#top">
           <span><ArrowUpRight size={18} /></span> Trek
         </a>
-        <p>Your money. Your pace. Your data.</p>
-        <span className="tw-footer-links">© 2026 Trek · <button onClick={() => onLegal("privacy")}>Privacy</button> · <button onClick={() => onLegal("cookies")}>Cookies</button> · <button onClick={() => onLegal("terms")}>Terms</button> · <a href="mailto:support@trekmoney.pl">Support</a></span>
+        <p>{copy.footer.motto}</p>
+        <span className="tw-footer-links">© 2026 Trek · <button onClick={() => onLegal("privacy")}>{copy.footer.privacy}</button> · <button onClick={() => onLegal("cookies")}>{copy.footer.cookies}</button> · <button onClick={() => onLegal("terms")}>{copy.footer.terms}</button> · <a href="mailto:support@trekmoney.pl">{copy.footer.support}</a></span>
       </footer>
-      <CookieNotice onOpenPolicy={() => onLegal("cookies")} />
-      {showVideo && <DemoVideo onClose={() => setShowVideo(false)} />}
+      <CookieNotice copy={copy.cookie} onOpenPolicy={() => onLegal("cookies")} />
+      {showVideo && <DemoVideo copy={copy.video} onClose={() => setShowVideo(false)} />}
     </div>
   );
 }
@@ -713,6 +652,21 @@ export default function TrekWeb({ nativeApp = false }) {
   const [screen, setScreen] = useState(nativeApp ? "workspace" : "landing");
   const [landingAccount, setLandingAccount] = useState({ name: "M", avatarUrl: "" });
   const [legalDocument, setLegalDocument] = useState(null);
+  const [locale, setLocale] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get("lang");
+    try { return preferredLocale([requested, localStorage.getItem("trek-language"), ...(navigator.languages || [])].filter(Boolean)); } catch { return preferredLocale([requested, ...(navigator.languages || [])].filter(Boolean)); }
+  });
+  const changeLocale = (value) => { setLocale(value); try { localStorage.setItem("trek-language", value); const url = new URL(window.location.href); url.searchParams.set("lang", value); window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`); } catch {} };
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    const metadata = {
+      en: ["Trek — Money made clear", "Plan your month, track spending and know what is safe to spend today."],
+      pl: ["Trek — Finanse pod kontrolą", "Planuj miesiąc, śledź wydatki i sprawdzaj, ile możesz bezpiecznie wydać dzisiaj."],
+      uk: ["Trek — Зрозумілі фінанси", "Плануйте місяць, відстежуйте витрати й дізнавайтеся, скільки безпечно витратити сьогодні."],
+    }[locale];
+    document.title = metadata[0];
+    document.querySelector('meta[name="description"]')?.setAttribute("content", metadata[1]);
+  }, [locale]);
   useEffect(() => {
     if (!supabase) {
       setSession(null);
@@ -792,8 +746,8 @@ export default function TrekWeb({ nativeApp = false }) {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} /><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
-  if (!session) return <><Suspense fallback={<div className="tw-loading">Opening secure sign-in…</div>}><AuthScreen onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} locale={locale} onLocale={changeLocale} /><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!session) return <><Suspense fallback={<div className="tw-loading">Opening secure sign-in…</div>}><AuthScreen locale={locale} onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   return (
     <Suspense fallback={<div className="tw-loading">Opening your money space…</div>}><Cabinet
         nativeApp={nativeApp}

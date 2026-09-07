@@ -12,8 +12,9 @@ import { supabase } from "./supabase.js";
 import "./auth.css";
 import "./auth-extra.css";
 import { LEGAL_VERSION } from "./legal.jsx";
+import { PUBLIC_COPY } from "./public-copy.js";
 
-export default function AuthScreen({ onBack, onLegal }) {
+export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -22,6 +23,7 @@ export default function AuthScreen({ onBack, onLegal }) {
   const [busy, setBusy] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const configured = Boolean(supabase);
+  const copy = PUBLIC_COPY[locale].auth;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -29,7 +31,7 @@ export default function AuthScreen({ onBack, onLegal }) {
     setBusy(true);
     setMessage("");
     const redirectTo = window.location.protocol === "capacitor:"
-      ? "https://trekapp.up.railway.app/"
+      ? "https://trekmoney.pl/"
       : `${window.location.origin}`;
     let result;
     if (mode === "signup") {
@@ -42,13 +44,11 @@ export default function AuthScreen({ onBack, onLegal }) {
         },
       });
       if (!result.error)
-        setMessage("Check your email to confirm the account, then sign in.");
+        setMessage(copy.confirm);
     } else if (mode === "reset") {
       result = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (!result.error)
-        setMessage(
-          "If this address exists, a password-reset email is on its way."
-        );
+        setMessage(copy.resetSent);
     } else {
       result = await supabase.auth.signInWithPassword({ email, password });
     }
@@ -56,18 +56,8 @@ export default function AuthScreen({ onBack, onLegal }) {
     setBusy(false);
   };
 
-  const title =
-    mode === "signup"
-      ? "Create your account"
-      : mode === "reset"
-      ? "Reset your password"
-      : "Welcome back";
-  const copy =
-    mode === "signup"
-      ? "Start building a clearer money habit."
-      : mode === "reset"
-      ? "We will send you a secure reset link."
-      : "Your money rhythm is waiting.";
+  const title = copy.titles[mode];
+  const intro = copy.copies[mode];
 
   return (
     <main className="ta-auth">
@@ -76,28 +66,28 @@ export default function AuthScreen({ onBack, onLegal }) {
           <i><ArrowUpRight size={18} /></i> Trek
         </button>
         <div>
-          <span>PRIVATE MONEY SPACE</span>
+          <span>{copy.private}</span>
           <h1>
-            Your money.
+            {copy.hero[0]}
             <br />
-            <em>Your pace.</em>
+            <em>{copy.hero[1]}</em>
           </h1>
-          <p>Simple tracking, clear budgets and signals you can act on.</p>
+          <p>{copy.brandBody}</p>
         </div>
         <footer>
-          <ShieldCheck size={16} /> Protected by secure account sessions
+          <ShieldCheck size={16} /> {copy.secure}
         </footer>
       </section>
       <section className="ta-form-wrap">
         <form className="ta-form" onSubmit={submit}>
           <span className="ta-eyebrow">
-            <KeyRound size={14} /> TREK ACCOUNT
+            <KeyRound size={14} /> {copy.eyebrow}
           </span>
           <h2>{title}</h2>
           <p>
             {configured
-              ? copy
-              : "Add the Supabase environment variables in Railway to activate secure sign-in."}
+              ? intro
+              : copy.unavailable}
           </p>
           {message && (
             <div className="ta-message" role="status">
@@ -106,17 +96,17 @@ export default function AuthScreen({ onBack, onLegal }) {
           )}
           {mode === "signup" && (
             <label>
-              Full name
+              {copy.name}
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={copy.namePlaceholder}
                 required
               />
             </label>
           )}
           <label>
-            Email
+            {copy.email}
             <input
               type="email"
               value={email}
@@ -127,26 +117,26 @@ export default function AuthScreen({ onBack, onLegal }) {
           </label>
           {mode !== "reset" && (
             <label>
-              Password
+              {copy.password}
               <input
                 type="password"
                 minLength="6"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder={copy.passwordPlaceholder}
                 required
               />
             </label>
           )}
-          {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>I agree to the <button type="button" onClick={() => onLegal("terms")}>Terms</button> and acknowledge the <button type="button" onClick={() => onLegal("privacy")}>Privacy Notice</button>.</span></label>}
+          {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>{copy.legalStart} <button type="button" onClick={() => onLegal("terms")}>{copy.terms}</button> {copy.legalAnd} <button type="button" onClick={() => onLegal("privacy")}>{copy.privacy}</button>.</span></label>}
           <button disabled={!configured || busy || (mode === "signup" && !legalAccepted)} className="ta-submit">
             {busy
-              ? "Please wait…"
+              ? copy.wait
               : mode === "signup"
-              ? "Create account"
+              ? copy.create
               : mode === "reset"
-              ? "Send reset link"
-              : "Sign in"}
+              ? copy.reset
+              : copy.signIn}
             <ArrowRight size={17} />
           </button>
           {mode === "login" && (
@@ -158,26 +148,26 @@ export default function AuthScreen({ onBack, onLegal }) {
                 setMessage("");
               }}
             >
-              Forgot password?
+              {copy.forgot}
             </button>
           )}
           <div className="ta-switch">
             {mode === "signup" ? (
               <>
-                Already have an account?{" "}
+                {copy.existing}{" "}
                 <button type="button" onClick={() => setMode("login")}>
-                  Sign in
+                  {copy.signIn}
                 </button>
               </>
             ) : mode === "reset" ? (
               <button type="button" onClick={() => setMode("login")}>
-                <ArrowLeft size={14} /> Back to sign in
+                <ArrowLeft size={14} /> {copy.back}
               </button>
             ) : (
               <>
-                New to Trek?{" "}
+                {copy.new}{" "}
                 <button type="button" onClick={() => setMode("signup")}>
-                  Create an account
+                  {copy.createLink}
                 </button>
               </>
             )}
