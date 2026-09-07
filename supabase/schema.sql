@@ -19,6 +19,11 @@ create table if not exists public.user_settings (
 );
 alter table public.user_settings add column if not exists privacy_mode boolean not null default false;
 alter table public.user_settings add column if not exists dashboard_widgets text[] not null default array['pace','signal','transactions','goals'];
+-- Existing accounts skip first-run setup. Accounts created after this migration
+-- receive the guided setup because the final column default is false.
+alter table public.user_settings add column if not exists onboarding_completed boolean not null default true;
+alter table public.user_settings alter column onboarding_completed set default false;
+alter table public.user_settings add column if not exists notifications_enabled boolean not null default true;
 
 -- Existing accounts keep their chosen currency; EUR applies only to new settings rows.
 alter table public.user_settings alter column currency set default 'EUR';

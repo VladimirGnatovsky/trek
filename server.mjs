@@ -342,11 +342,14 @@ const receiptScan = async (req, res) => {
     recent.push(now);
     receiptLimits.set(user.id, recent);
 
-    const { image = {} } = await getBody(req, 6_000_000);
+    const { image = {}, targetCurrency = "EUR" } = await getBody(req, 6_000_000);
     const mimeType = String(image.mimeType || "");
     const data = String(image.data || "");
     if (!/^image\/(jpeg|png|webp)$/.test(mimeType) || !data || data.length > 5_500_000) {
       return sendJson(res, 400, { error: "Choose a JPG, PNG or WebP receipt under 4 MB." });
+    }
+    if (!["EUR", "USD", "PLN", "UAH"].includes(targetCurrency)) {
+      return sendJson(res, 400, { error: "Unsupported display currency." });
     }
     const prompt = `Read this receipt and return only one JSON object with these fields: merchant (short string), amount (final total as a positive number), currency (EUR, USD, PLN or UAH), date (YYYY-MM-DD), category (exactly one of Groceries, Transport, Subscriptions, Coffee, Shopping, Housing, Health, Fun, Other), note (short useful summary, optionally including item count), confidence (high or low). Do not include Markdown. Today is ${new Date().toISOString().slice(0, 10)}. Use null for values that cannot be read.`;
     const model = await resolveGeminiModel();
@@ -368,11 +371,28 @@ const receiptScan = async (req, res) => {
     const parsed = JSON.parse(text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim());
     const allowedCategories = new Set(["Groceries", "Transport", "Subscriptions", "Coffee", "Shopping", "Housing", "Health", "Fun", "Other"]);
     const amount = Number(parsed.amount);
+    const parsedCurrency = String(parsed.currency || "").toUpperCase();
+    const originalCurrency = ["EUR", "USD", "PLN", "UAH"].includes(parsedCurrency) ? parsedCurrency : null;
+    const receiptDate = /^\d{4}-\d{2}-\d{2}$/.test(parsed.date || "") ? parsed.date : new Date().toISOString().slice(0, 10);
+    let convertedAmount = Number.isFinite(amount) && amount > 0 ? amount : null;
+    let exchangeRate = 1;
+    let exchangeRateDate = receiptDate;
+    if (convertedAmount && originalCurrency && originalCurrency !== targetCurrency) {
+      const source = await nbuRateToUah(originalCurrency, receiptDate);
+      const target = await nbuRateToUah(targetCurrency, receiptDate);
+      exchangeRate = source.rate / target.rate;
+      exchangeRateDate = source.date < target.date ? source.date : target.date;
+      convertedAmount = Math.round(convertedAmount * exchangeRate * 100) / 100;
+    }
     return sendJson(res, 200, { receipt: {
       merchant: String(parsed.merchant || "").slice(0, 120),
-      amount: Number.isFinite(amount) && amount > 0 ? amount : null,
-      currency: ["EUR", "USD", "PLN", "UAH"].includes(parsed.currency) ? parsed.currency : null,
-      date: /^\d{4}-\d{2}-\d{2}$/.test(parsed.date || "") ? parsed.date : null,
+      amount: convertedAmount,
+      currency: targetCurrency,
+      originalAmount: Number.isFinite(amount) && amount > 0 ? amount : null,
+      originalCurrency,
+      exchangeRate,
+      exchangeRateDate,
+      date: receiptDate,
       category: allowedCategories.has(parsed.category) ? parsed.category : "Other",
       note: String(parsed.note || "Scanned receipt").slice(0, 240),
       confidence: parsed.confidence === "high" ? "high" : "low",
