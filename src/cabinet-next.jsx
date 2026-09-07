@@ -16,7 +16,7 @@ import { supabase } from "./supabase.js";
 import { CryptoModal, CryptoPage } from "./crypto.jsx";
 import { normalizeMerchant, suggestedCategory } from "../lib/merchant-rules.mjs";
 import { validateBackup } from "../lib/backup.mjs";
-import { CABINET_COPY } from "./cabinet-copy.js";
+import { CABINET_COPY, categoryLabel, ui } from "./cabinet-copy.js";
 import LanguageSwitch from "./language-switch.jsx";
 
 const CATEGORIES = ["Groceries", "Transport", "Subscriptions", "Coffee", "Shopping", "Housing", "Health", "Fun", "Other"];
@@ -157,7 +157,7 @@ const smoothPath = (points) => points.reduce((path, point, index) => {
   return `${path} C ${middle} ${previous.y}, ${middle} ${point.y}, ${point.x} ${point.y}`;
 }, "");
 
-function Bars({ values, currency, hidden }) {
+function Bars({ values, currency, hidden, locale = "en" }) {
   const [active, setActive] = useState(Math.max(0, values.length - 1));
   const max = Math.max(...values.map((item) => item.amount), 1);
   const points = values.map((item, index) => ({
@@ -173,7 +173,7 @@ function Bars({ values, currency, hidden }) {
       {points.map((point, index) => <circle key={index} className={index === active ? "active" : ""} cx={point.x} cy={point.y} r={index === active ? 5 : 3} />)}
     </svg>
     {selected && <output className="tn-chart-tooltip" style={{ left: `${tooltipLeft}%` }}>
-      <small>{selected.key ? localDate(selected.key).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : selected.label}</small>
+      <small>{selected.key ? localDate(selected.key).toLocaleDateString(LOCALE_TAGS[locale] || LOCALE_TAGS.en, { month: "short", day: "numeric" }) : selected.label}</small>
       <strong>{money(selected.amount, currency, hidden)}</strong>
     </output>}
     {values.map((item, index) => <button type="button" className={`tc-bar${index === active ? " selected" : ""}`} key={item.key || item.label} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)} aria-label={`${item.label}: ${money(item.amount, currency, hidden)}`}>
@@ -183,7 +183,7 @@ function Bars({ values, currency, hidden }) {
   </div>;
 }
 
-function Donut({ rows, total, currency, hidden }) {
+function Donut({ rows, total, currency, hidden, locale = "en" }) {
   const [active, setActive] = useState(0);
   let cursor = 0;
   const stops = rows.map((row, index) => {
@@ -195,45 +195,48 @@ function Donut({ rows, total, currency, hidden }) {
   const selected = rows[active] || rows[0];
   return <div className="tn-donut-wrap">
     <div className="tn-donut" style={{ background: rows.length ? `conic-gradient(${stops.join(",")})` : "#263038" }}>
-      <span><b>{selected?.category || "Total"}</b><small>{money(selected?.amount ?? total, currency, hidden)}</small></span>
+      <span><b>{selected?.category ? categoryLabel(locale, selected.category) : ui(locale, "Total")}</b><small>{money(selected?.amount ?? total, currency, hidden)}</small></span>
     </div>
     <div className="tn-donut-legend">
       {rows.slice(0, 5).map((row, index) => <button type="button" className={index === active ? "active" : ""} key={row.category} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}>
-        <i style={{ background: COLORS[index % COLORS.length] }} />{row.category}
+        <i style={{ background: COLORS[index % COLORS.length] }} />{categoryLabel(locale, row.category)}
       </button>)}
     </div>
   </div>;
 }
 
-function Overview({ transactions, metrics, budget, goals, currency, hidden, categoryBudgets, widgets, onAdd, onView, onCoach }) {
+function Overview({ transactions, metrics, budget, goals, currency, hidden, categoryBudgets, widgets, onAdd, onView, onCoach, locale }) {
   const primaryGoal = goals.find((goal) => goal.status === "active");
   const planned = Object.values(categoryBudgets).reduce((sum, value) => sum + Number(value || 0), 0);
+  const signalDetail = metrics.forecast > budget
+    ? locale === "pl" ? `Zmniejsz pozostałe dzienne tempo o ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.` : locale === "uk" ? `Зменште подальші щоденні витрати на ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.` : `Reduce the remaining daily pace by ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.`
+    : locale === "pl" ? `W tym tempie na koniec miesiąca powinno zostać ${money(Math.max(0, budget - metrics.forecast), currency, hidden)}.` : locale === "uk" ? `За такого темпу наприкінці місяця має залишитися ${money(Math.max(0, budget - metrics.forecast), currency, hidden)}.` : `At this pace, ${money(Math.max(0, budget - metrics.forecast), currency, hidden)} should remain at month end.`;
   return <>
     <section className="tc-hero">
-      <div><span>SAFE TO SPEND · DAY {metrics.elapsedDays}</span><h2>{money(metrics.safeToSpend, currency, hidden)}</h2><p><i /> {money(metrics.upcoming, currency, hidden)} reserved for upcoming bills</p></div>
+      <div><span>{ui(locale, "SAFE TO SPEND")} · {ui(locale, "DAY")} {metrics.elapsedDays}</span><h2>{money(metrics.safeToSpend, currency, hidden)}</h2><p><i /> {money(metrics.upcoming, currency, hidden)} {ui(locale, "reserved for upcoming bills")}</p></div>
       <Score value={metrics.score} />
-      <button className="tc-action" onClick={onAdd}><Plus size={17} /> Add transaction</button>
+      <button className="tc-action" onClick={onAdd}><Plus size={17} /> {ui(locale, "Add transaction")}</button>
     </section>
     <div className="tc-kpis">
-      <div><span>SPENT</span><b>{money(metrics.spending, currency, hidden)}</b><small>of {money(budget, currency, hidden)} budget</small></div>
-      <div><span>MONTH-END FORECAST</span><b>{money(metrics.forecast, currency, hidden)}</b><small>{metrics.forecast > budget ? "above" : "within"} current plan</small></div>
-      <div><span>INCOME</span><b>{money(metrics.earned, currency, hidden)}</b><small>logged this month</small></div>
-      <div><span>PLANNED</span><b>{money(planned, currency, hidden)}</b><small>across category envelopes</small></div>
+      <div><span>{ui(locale, "SPENT")}</span><b>{money(metrics.spending, currency, hidden)}</b><small>{ui(locale, "of")} {money(budget, currency, hidden)} {ui(locale, "budget")}</small></div>
+      <div><span>{ui(locale, "MONTH-END FORECAST")}</span><b>{money(metrics.forecast, currency, hidden)}</b><small>{ui(locale, metrics.forecast > budget ? "above" : "within")} {ui(locale, "current plan")}</small></div>
+      <div><span>{ui(locale, "INCOME")}</span><b>{money(metrics.earned, currency, hidden)}</b><small>{ui(locale, "logged this month")}</small></div>
+      <div><span>{ui(locale, "PLANNED")}</span><b>{money(planned, currency, hidden)}</b><small>{ui(locale, "across category envelopes")}</small></div>
     </div>
     <div className="tc-grid">
-      {widgets.includes("pace") && <section className="tc-panel tc-spend"><header><div><span>LAST 7 DAYS</span><h3>Daily spending rhythm</h3></div><button onClick={() => onView("analytics")}>View analytics <ChevronRight size={14} /></button></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} /></section>}
-      {widgets.includes("signal") && <section className="tc-panel tc-signal"><span className="tc-signal-icon"><Sparkles size={20} /></span><span>TREK SIGNAL</span><h3>{metrics.forecast > budget ? "Your current pace is above plan" : "Your current pace is inside plan"}</h3><p>{metrics.forecast > budget ? `Reduce the remaining daily pace by ${money((metrics.forecast - budget) / Math.max(1, metrics.daysInMonth - metrics.elapsedDays), currency, hidden)}.` : `At this pace, ${money(Math.max(0, budget - metrics.forecast), currency, hidden)} should remain at month end.`}</p><div className="tc-signal-actions"><button onClick={() => onView("plan")}>Review plan <ChevronRight size={14} /></button><button onClick={onCoach}>Ask the coach <Sparkles size={14} /></button></div></section>}
-      {widgets.includes("transactions") && <section className="tc-panel tc-list"><header><div><span>RECENT TRANSACTIONS</span><h3>{transactions.length ? "Latest activity" : "No activity yet"}</h3></div><button onClick={() => onView("transactions")}>All transactions <ChevronRight size={14} /></button></header>{transactions.slice(0, 4).map((item) => <TransactionRow key={item.id} item={item} currency={currency} hidden={hidden} />)}</section>}
-      {widgets.includes("goals") && <section className="tc-panel tc-goal"><span className="tc-goal-big"><Target size={21} /></span><span>TOP GOAL</span>{primaryGoal ? <><h3>{primaryGoal.name}</h3><div className="tc-progress"><i style={{ width: `${clamp(primaryGoal.saved / primaryGoal.target * 100, 0, 100)}%` }} /></div><p><b>{money(primaryGoal.saved, currency, hidden)}</b> of {money(primaryGoal.target, currency, hidden)} <em>{Math.round(primaryGoal.saved / primaryGoal.target * 100)}%</em></p></> : <><h3>Create your first goal</h3><p>Give your monthly plan a direction.</p></>}<button onClick={() => onView("goals")}>Open goals <ChevronRight size={14} /></button></section>}
+      {widgets.includes("pace") && <section className="tc-panel tc-spend"><header><div><span>{ui(locale, "LAST 7 DAYS")}</span><h3>{ui(locale, "Daily spending rhythm")}</h3></div><button onClick={() => onView("analytics")}>{ui(locale, "View analytics")} <ChevronRight size={14} /></button></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} locale={locale} /></section>}
+      {widgets.includes("signal") && <section className="tc-panel tc-signal"><span className="tc-signal-icon"><Sparkles size={20} /></span><span>{ui(locale, "TREK SIGNAL")}</span><h3>{ui(locale, metrics.forecast > budget ? "Your current pace is above plan" : "Your current pace is inside plan")}</h3><p>{signalDetail}</p><div className="tc-signal-actions"><button onClick={() => onView("plan")}>{ui(locale, "Review plan")} <ChevronRight size={14} /></button><button onClick={onCoach}>{ui(locale, "Ask the coach")} <Sparkles size={14} /></button></div></section>}
+      {widgets.includes("transactions") && <section className="tc-panel tc-list"><header><div><span>{ui(locale, "RECENT TRANSACTIONS")}</span><h3>{ui(locale, transactions.length ? "Latest activity" : "No activity yet")}</h3></div><button onClick={() => onView("transactions")}>{ui(locale, "All transactions")} <ChevronRight size={14} /></button></header>{transactions.slice(0, 4).map((item) => <TransactionRow key={item.id} item={item} currency={currency} hidden={hidden} locale={locale} />)}</section>}
+      {widgets.includes("goals") && <section className="tc-panel tc-goal"><span className="tc-goal-big"><Target size={21} /></span><span>{ui(locale, "TOP GOAL")}</span>{primaryGoal ? <><h3>{primaryGoal.name}</h3><div className="tc-progress"><i style={{ width: `${clamp(primaryGoal.saved / primaryGoal.target * 100, 0, 100)}%` }} /></div><p><b>{money(primaryGoal.saved, currency, hidden)}</b> {ui(locale, "of")} {money(primaryGoal.target, currency, hidden)} <em>{Math.round(primaryGoal.saved / primaryGoal.target * 100)}%</em></p></> : <><h3>{ui(locale, "Create your first goal")}</h3><p>{ui(locale, "Give your monthly plan a direction.")}</p></>}<button onClick={() => onView("goals")}>{ui(locale, "Open goals")} <ChevronRight size={14} /></button></section>}
     </div>
   </>;
 }
 
-function TransactionRow({ item, currency, hidden, checked, onCheck, onEdit, onDelete }) {
+function TransactionRow({ item, currency, hidden, checked, onCheck, onEdit, onDelete, locale = "en" }) {
   return <div className="tc-transaction">
     {onCheck && <input type="checkbox" checked={checked} onChange={() => onCheck(item.id)} aria-label={`Select ${item.merchant}`} />}
     <span className="tc-txn-icon" style={{ background: `${item.color}20`, color: item.color }}><CategoryIcon category={item.category} /></span>
-    <div><b>{item.merchant}</b><small>{item.type === "income" ? "Income" : item.category} · {item.date}{item.note ? ` · ${item.note}` : ""}</small></div>
+    <div><b>{item.merchant}</b><small>{item.type === "income" ? ui(locale, "INCOME") : categoryLabel(locale, item.category)} · {item.date}{item.note ? ` · ${item.note}` : ""}</small></div>
     <em className={item.type === "income" ? "tc-income" : ""}>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</em>
     {item.needsReview && <AlertTriangle size={15} className="tn-review" aria-label="Needs review" />}
     {onEdit && <button onClick={() => onEdit(item)} aria-label="Edit transaction"><Pencil size={14} /></button>}
@@ -241,7 +244,7 @@ function TransactionRow({ item, currency, hidden, checked, onCheck, onEdit, onDe
   </div>;
 }
 
-function TransactionsPage({ items, currency, hidden, canImport, onAdd, onEdit, onDelete, onDeleteMany, onImport }) {
+function TransactionsPage({ items, currency, hidden, canImport, onAdd, onEdit, onDelete, onDeleteMany, onImport, locale }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [kind, setKind] = useState("All");
@@ -252,62 +255,62 @@ function TransactionsPage({ items, currency, hidden, canImport, onAdd, onEdit, o
   });
   const toggle = (id) => setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   return <section className="tc-page">
-    <div className="tc-page-head"><div><span>YOUR RECORDS</span><h2>Transactions</h2><p>{filtered.length} visible entries · edit, filter or review your records.</p></div><button className="tc-action" onClick={onAdd}><Plus size={17} /> Add transaction</button></div>
+    <div className="tc-page-head"><div><span>{ui(locale, "YOUR RECORDS")}</span><h2>{ui(locale, "Transactions")}</h2><p>{filtered.length} {ui(locale, "visible entries")} · {ui(locale, "edit, filter or review your records.")}</p></div><button className="tc-action" onClick={onAdd}><Plus size={17} /> {ui(locale, "Add transaction")}</button></div>
     <section className="tc-panel tn-toolbar">
-      <label className="tn-search"><Search size={16} /><input placeholder="Search merchant, note or tag" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-      <select value={category} onChange={(event) => setCategory(event.target.value)}><option>All</option>{CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select>
-      <select value={kind} onChange={(event) => setKind(event.target.value)}><option>All</option><option value="expense">Expenses</option><option value="income">Income</option></select>
-      <button onClick={onImport}><FileUp size={16} /> Import statement{!canImport && " · Lifetime"}</button>
-      {selected.size > 0 && <button className="tn-danger" onClick={async () => { await onDeleteMany([...selected]); setSelected(new Set()); }}><Trash2 size={15} /> Delete {selected.size}</button>}
+      <label className="tn-search"><Search size={16} /><input placeholder={ui(locale, "Search merchant, note or tag")} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="All">{ui(locale, "All")}</option>{CATEGORIES.map((item) => <option key={item} value={item}>{categoryLabel(locale, item)}</option>)}</select>
+      <select value={kind} onChange={(event) => setKind(event.target.value)}><option value="All">{ui(locale, "All")}</option><option value="expense">{ui(locale, "Expenses")}</option><option value="income">{ui(locale, "INCOME")}</option></select>
+      <button onClick={onImport}><FileUp size={16} /> {ui(locale, "Import statement")}{!canImport && " · Lifetime"}</button>
+      {selected.size > 0 && <button className="tn-danger" onClick={async () => { await onDeleteMany([...selected]); setSelected(new Set()); }}><Trash2 size={15} /> {ui(locale, "Delete")} {selected.size}</button>}
     </section>
-    <section className="tc-panel tn-transaction-table">{filtered.length ? filtered.map((item) => <TransactionRow key={item.id} item={item} currency={currency} hidden={hidden} checked={selected.has(item.id)} onCheck={toggle} onEdit={onEdit} onDelete={onDelete} />) : <Empty icon={ReceiptText} title="No matching transactions" copy="Change the filters or log a new entry." />}</section>
+    <section className="tc-panel tn-transaction-table">{filtered.length ? filtered.map((item) => <TransactionRow key={item.id} item={item} currency={currency} hidden={hidden} checked={selected.has(item.id)} onCheck={toggle} onEdit={onEdit} onDelete={onDelete} locale={locale} />) : <Empty icon={ReceiptText} title={ui(locale, "No matching transactions")} copy={ui(locale, "Change the filters or log a new entry.")} />}</section>
   </section>;
 }
 
-function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudgetSave, onCategorySave, onCopyPrevious }) {
+function PlanPage({ budget, categoryBudgets, metrics, currency, hidden, onBudgetSave, onCategorySave, onCopyPrevious, locale }) {
   const [total, setTotal] = useState(String(budget));
   useEffect(() => setTotal(String(budget)), [budget]);
   const planned = Object.values(categoryBudgets).reduce((sum, value) => sum + Number(value || 0), 0);
   return <section className="tc-page">
-    <div className="tc-page-head"><div><span>YOUR SPENDING PLAN</span><h2>Monthly plan</h2><p>Assign a job to your money and compare the plan with actual spending.</p></div><button className="tc-action tn-secondary" onClick={onCopyPrevious}><RefreshCw size={16} /> Copy previous month</button></div>
-    <section className="tc-plan-total"><div><span>MONTHLY BUDGET</span><div className="tn-budget-edit"><input inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} /><button onClick={() => onBudgetSave(Number(total.replace(",", ".")) || 0)}>Save</button></div><p>{money(metrics.spending, currency, hidden)} spent · {money(metrics.remaining, currency, hidden)} remaining</p></div><div className="tn-plan-summary"><b>{money(planned, currency, hidden)}</b><small>assigned to categories</small></div></section>
-    <section className="tc-panel tc-budget-list"><header><span>CATEGORY ENVELOPES</span><span>{money(Math.max(0, budget - planned), currency, hidden)} unassigned</span></header>{CATEGORIES.map((category, index) => {
+    <div className="tc-page-head"><div><span>{ui(locale, "YOUR SPENDING PLAN")}</span><h2>{ui(locale, "Monthly plan")}</h2><p>{ui(locale, "Assign a job to your money and compare the plan with actual spending.")}</p></div><button className="tc-action tn-secondary" onClick={onCopyPrevious}><RefreshCw size={16} /> {ui(locale, "Copy previous month")}</button></div>
+    <section className="tc-plan-total"><div><span>{ui(locale, "MONTHLY BUDGET")}</span><div className="tn-budget-edit"><input inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} /><button onClick={() => onBudgetSave(Number(total.replace(",", ".")) || 0)}>{ui(locale, "Save")}</button></div><p>{money(metrics.spending, currency, hidden)} {ui(locale, "spent")} · {money(metrics.remaining, currency, hidden)} {ui(locale, "remaining")}</p></div><div className="tn-plan-summary"><b>{money(planned, currency, hidden)}</b><small>{ui(locale, "assigned to categories")}</small></div></section>
+    <section className="tc-panel tc-budget-list"><header><span>{ui(locale, "CATEGORY ENVELOPES")}</span><span>{money(Math.max(0, budget - planned), currency, hidden)} {ui(locale, "unassigned")}</span></header>{CATEGORIES.map((category, index) => {
       const spent = metrics.byCategory.find((item) => item.category === category)?.amount || 0;
       const amount = Number(categoryBudgets[category] || 0);
-      return <div className="tc-budget-row tn-budget-row" key={category}><div><CategoryIcon category={category} /><b>{category}</b><small>{money(spent, currency, hidden)} spent</small></div><div><span><i style={{ width: `${clamp(spent / Math.max(amount, 1) * 100, 0, 100)}%`, background: spent > amount && amount > 0 ? "#ff795e" : COLORS[index] }} /></span><input inputMode="decimal" value={categoryBudgets[category] ?? ""} placeholder="0" onChange={(event) => onCategorySave(category, event.target.value, false)} onBlur={(event) => onCategorySave(category, event.target.value, true)} /></div></div>;
+      return <div className="tc-budget-row tn-budget-row" key={category}><div><CategoryIcon category={category} /><b>{categoryLabel(locale, category)}</b><small>{money(spent, currency, hidden)} {ui(locale, "spent")}</small></div><div><span><i style={{ width: `${clamp(spent / Math.max(amount, 1) * 100, 0, 100)}%`, background: spent > amount && amount > 0 ? "#ff795e" : COLORS[index] }} /></span><input inputMode="decimal" value={categoryBudgets[category] ?? ""} placeholder="0" onChange={(event) => onCategorySave(category, event.target.value, false)} onBlur={(event) => onCategorySave(category, event.target.value, true)} /></div></div>;
     })}</section>
   </section>;
 }
 
-function RecurringPage({ items, currency, hidden, canUse, onAdd, onPost, onDelete, onUpgrade }) {
+function RecurringPage({ items, currency, hidden, canUse, onAdd, onPost, onDelete, onUpgrade, locale }) {
   const expenses = items.filter((item) => item.type !== "income" && item.active);
   const total = expenses.reduce((sum, item) => sum + item.amount, 0);
   return <section className="tc-page">
-    <div className="tc-page-head"><div><span>WHAT IS COMING</span><h2>Recurring</h2><p>Plan around subscriptions, bills and regular income.</p></div><button className="tc-action" onClick={canUse ? onAdd : onUpgrade}><Plus size={17} /> {canUse ? "Add recurring" : "Unlock with Plus"}</button></div>
-    <div className="tc-kpis"><div><span>MONTHLY COMMITMENTS</span><b>{money(total, currency, hidden)}</b><small>active recurring expenses</small></div><div><span>ACTIVE ITEMS</span><b>{items.filter((item) => item.active).length}</b><small>bills and income</small></div><div><span>ANNUALIZED</span><b>{money(total * 12, currency, hidden)}</b><small>estimated recurring spend</small></div></div>
-    <section className="tc-panel tn-recurring-list">{items.length ? items.sort((a, b) => a.day - b.day).map((item) => <article key={item.id}><time>{item.day}</time><span className="tc-txn-icon"><CategoryIcon category={item.category} /></span><div><b>{item.merchant}</b><small>{item.category} · every month</small></div><strong>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</strong><button onClick={() => onPost(item)} title="Post this month"><Check size={16} /></button><button onClick={() => onDelete(item.id)} title="Delete"><Trash2 size={15} /></button></article>) : <Empty icon={CalendarClock} title="No recurring items yet" copy="Add rent, subscriptions, salary or other repeating entries." />}</section>
+    <div className="tc-page-head"><div><span>{ui(locale, "WHAT IS COMING")}</span><h2>{ui(locale, "Recurring")}</h2><p>{ui(locale, "Plan around subscriptions, bills and regular income.")}</p></div><button className="tc-action" onClick={canUse ? onAdd : onUpgrade}><Plus size={17} /> {ui(locale, canUse ? "Add recurring" : "Unlock with Plus")}</button></div>
+    <div className="tc-kpis"><div><span>{ui(locale, "MONTHLY COMMITMENTS")}</span><b>{money(total, currency, hidden)}</b><small>{ui(locale, "active recurring expenses")}</small></div><div><span>{ui(locale, "ACTIVE ITEMS")}</span><b>{items.filter((item) => item.active).length}</b><small>{ui(locale, "bills and income")}</small></div><div><span>{ui(locale, "ANNUALIZED")}</span><b>{money(total * 12, currency, hidden)}</b><small>{ui(locale, "estimated recurring spend")}</small></div></div>
+    <section className="tc-panel tn-recurring-list">{items.length ? items.sort((a, b) => a.day - b.day).map((item) => <article key={item.id}><time>{item.day}</time><span className="tc-txn-icon"><CategoryIcon category={item.category} /></span><div><b>{item.merchant}</b><small>{categoryLabel(locale, item.category)} · {ui(locale, "every month")}</small></div><strong>{item.type === "income" ? "+" : "−"} {money(item.amount, currency, hidden)}</strong><button onClick={() => onPost(item)} title="Post this month"><Check size={16} /></button><button onClick={() => onDelete(item.id)} title={ui(locale, "Delete")}><Trash2 size={15} /></button></article>) : <Empty icon={CalendarClock} title={ui(locale, "No recurring items yet")} copy={ui(locale, "Add rent, subscriptions, salary or other repeating entries.")} />}</section>
   </section>;
 }
 
-function GoalsPage({ goals, currency, hidden, canAddMore, onAdd, onContribute, onArchive, onUpgrade }) {
+function GoalsPage({ goals, currency, hidden, canAddMore, onAdd, onContribute, onArchive, onUpgrade, locale }) {
   return <section className="tc-page">
-    <div className="tc-page-head"><div><span>MAKE ROOM FOR WHAT MATTERS</span><h2>Goals</h2><p>Track several goals and see the monthly contribution needed to stay on time.</p></div><button className="tc-action" onClick={canAddMore ? onAdd : onUpgrade}><Plus size={17} /> {canAddMore ? "New goal" : "More goals · Plus"}</button></div>
+    <div className="tc-page-head"><div><span>{ui(locale, "MAKE ROOM FOR WHAT MATTERS")}</span><h2>{ui(locale, "Goals")}</h2><p>{ui(locale, "Track several goals and see the monthly contribution needed to stay on time.")}</p></div><button className="tc-action" onClick={canAddMore ? onAdd : onUpgrade}><Plus size={17} /> {ui(locale, canAddMore ? "New goal" : "More goals · Plus")}</button></div>
     <div className="tn-goals-grid">{goals.length ? goals.map((goal) => {
       const pct = clamp(goal.saved / goal.target * 100, 0, 100);
       const deadline = goal.deadline ? localDate(goal.deadline) : null;
       const months = deadline ? Math.max(1, (deadline.getFullYear() - new Date().getFullYear()) * 12 + deadline.getMonth() - new Date().getMonth()) : null;
-      return <section className="tc-panel tn-goal-card" key={goal.id}><header><span style={{ color: goal.color }}>{goal.icon || "Target"}</span><button onClick={() => onArchive(goal.id)}><Trash2 size={14} /></button></header><h3>{goal.name}</h3><p>{goal.deadline ? `Target date ${localDate(goal.deadline).toLocaleDateString("en-US", { month: "short", year: "numeric" })}` : "No deadline"}</p><div className="tc-progress"><i style={{ width: `${pct}%`, background: goal.color }} /></div><div className="tn-goal-values"><b>{money(goal.saved, currency, hidden)}</b><span>of {money(goal.target, currency, hidden)} · {Math.round(pct)}%</span></div>{months && goal.saved < goal.target && <small>{money((goal.target - goal.saved) / months, currency, hidden)} per month to stay on track</small>}<form onSubmit={(event) => { event.preventDefault(); const input = event.currentTarget.elements.amount; onContribute(goal, Number(input.value.replace(",", "."))); input.value = ""; }}><input name="amount" inputMode="decimal" placeholder="Contribution" /><button className="tc-action">Add</button></form></section>;
-    }) : <section className="tc-panel"><Empty icon={Target} title="No goals yet" copy="Create a savings goal and Trek will calculate the required pace." /></section>}</div>
+      return <section className="tc-panel tn-goal-card" key={goal.id}><header><span style={{ color: goal.color }}>{goal.icon || "Target"}</span><button onClick={() => onArchive(goal.id)}><Trash2 size={14} /></button></header><h3>{goal.name}</h3><p>{goal.deadline ? `${ui(locale, "Target date")} ${localDate(goal.deadline).toLocaleDateString(LOCALE_TAGS[locale] || LOCALE_TAGS.en, { month: "short", year: "numeric" })}` : ui(locale, "No deadline")}</p><div className="tc-progress"><i style={{ width: `${pct}%`, background: goal.color }} /></div><div className="tn-goal-values"><b>{money(goal.saved, currency, hidden)}</b><span>{ui(locale, "of")} {money(goal.target, currency, hidden)} · {Math.round(pct)}%</span></div>{months && goal.saved < goal.target && <small>{money((goal.target - goal.saved) / months, currency, hidden)} {ui(locale, "per month to stay on track")}</small>}<form onSubmit={(event) => { event.preventDefault(); const input = event.currentTarget.elements.amount; onContribute(goal, Number(input.value.replace(",", "."))); input.value = ""; }}><input name="amount" inputMode="decimal" placeholder={ui(locale, "Contribution")} /><button className="tc-action">{ui(locale, "Add")}</button></form></section>;
+    }) : <section className="tc-panel"><Empty icon={Target} title={ui(locale, "No goals yet")} copy={ui(locale, "Create a savings goal and Trek will calculate the required pace.")} /></section>}</div>
   </section>;
 }
 
-function AnalyticsPage({ metrics, previousMetrics, categoryBudgets, currency, hidden }) {
+function AnalyticsPage({ metrics, previousMetrics, categoryBudgets, currency, hidden, locale }) {
   const comparison = previousMetrics.spending ? (metrics.spending - previousMetrics.spending) / previousMetrics.spending * 100 : 0;
   return <section className="tc-page">
-    <div className="tc-page-head"><div><span>THE BIGGER PICTURE</span><h2>Analytics</h2><p>Every chart is calculated from the selected month’s records.</p></div></div>
-    <div className="tc-kpis"><div><span>MONTH VS PREVIOUS</span><b>{comparison > 0 ? "+" : ""}{Math.round(comparison)}%</b><small>{comparison > 0 ? "more" : "less"} spending</small></div><div><span>SAVINGS RATE</span><b>{metrics.earned > 0 ? Math.round((metrics.earned - metrics.spending) / metrics.earned * 100) : 0}%</b><small>income minus expenses</small></div><div><span>NO-SPEND DAYS</span><b>{metrics.dailySeries.filter((item) => item.amount === 0).length}</b><small>within the last 7 days</small></div></div>
-    <div className="tc-grid analytics"><section className="tc-panel tc-spend"><header><div><span>DAILY RHYTHM</span><h3>{money(metrics.daily, currency, hidden)} average</h3></div></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} /></section><section className="tc-panel tn-donut-panel"><span>WHERE IT WENT</span><Donut rows={metrics.byCategory} total={metrics.spending} currency={currency} hidden={hidden} /><h3>{money(metrics.spending, currency, hidden)}</h3></section>
-      <section className="tc-panel tc-breakdown"><header><span>BUDGET VS ACTUAL</span></header>{metrics.byCategory.length ? metrics.byCategory.map((row, index) => { const planned = Number(categoryBudgets[row.category] || 0); return <div key={row.category}><p><span><CategoryIcon category={row.category} /> {row.category}</span><b>{money(row.amount, currency, hidden)} / {money(planned, currency, hidden)}</b></p><i><em style={{ width: `${clamp(row.amount / Math.max(planned, row.amount, 1) * 100, 0, 100)}%`, background: row.amount > planned && planned > 0 ? "#ff795e" : COLORS[index] }} /></i></div>; }) : <Empty icon={BarChart3} title="No analytics yet" copy="Add transactions to reveal your spending pattern." />}</section>
+    <div className="tc-page-head"><div><span>{ui(locale, "THE BIGGER PICTURE")}</span><h2>{ui(locale, "Analytics")}</h2><p>{ui(locale, "Every chart is calculated from the selected month’s records.")}</p></div></div>
+    <div className="tc-kpis"><div><span>{ui(locale, "MONTH VS PREVIOUS")}</span><b>{comparison > 0 ? "+" : ""}{Math.round(comparison)}%</b><small>{ui(locale, comparison > 0 ? "more" : "less")} {ui(locale, "spending")}</small></div><div><span>{ui(locale, "SAVINGS RATE")}</span><b>{metrics.earned > 0 ? Math.round((metrics.earned - metrics.spending) / metrics.earned * 100) : 0}%</b><small>{ui(locale, "income minus expenses")}</small></div><div><span>{ui(locale, "NO-SPEND DAYS")}</span><b>{metrics.dailySeries.filter((item) => item.amount === 0).length}</b><small>{ui(locale, "within the last 7 days")}</small></div></div>
+    <div className="tc-grid analytics"><section className="tc-panel tc-spend"><header><div><span>{ui(locale, "DAILY RHYTHM")}</span><h3>{money(metrics.daily, currency, hidden)} {ui(locale, "average")}</h3></div></header><Bars values={metrics.dailySeries} currency={currency} hidden={hidden} locale={locale} /></section><section className="tc-panel tn-donut-panel"><span>{ui(locale, "WHERE IT WENT")}</span><Donut rows={metrics.byCategory} total={metrics.spending} currency={currency} hidden={hidden} locale={locale} /><h3>{money(metrics.spending, currency, hidden)}</h3></section>
+      <section className="tc-panel tc-breakdown"><header><span>{ui(locale, "BUDGET VS ACTUAL")}</span></header>{metrics.byCategory.length ? metrics.byCategory.map((row, index) => { const planned = Number(categoryBudgets[row.category] || 0); return <div key={row.category}><p><span><CategoryIcon category={row.category} /> {categoryLabel(locale, row.category)}</span><b>{money(row.amount, currency, hidden)} / {money(planned, currency, hidden)}</b></p><i><em style={{ width: `${clamp(row.amount / Math.max(planned, row.amount, 1) * 100, 0, 100)}%`, background: row.amount > planned && planned > 0 ? "#ff795e" : COLORS[index] }} /></i></div>; }) : <Empty icon={BarChart3} title={ui(locale, "No analytics yet")} copy={ui(locale, "Add transactions to reveal your spending pattern.")} />}</section>
     </div>
   </section>;
 }
@@ -689,13 +692,13 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   const lockedView = (id) => ["recurring", "analytics"].includes(id) && !plus;
   const changeView = (id) => lockedView(id) ? setModal("pricing") : setView(id);
   let page;
-  if (view === "overview") page = <Overview transactions={monthTransactions} metrics={metrics} budget={budget} goals={goals} currency={currency} hidden={privacy} categoryBudgets={categoryBudgets} widgets={widgets} onAdd={() => { setEditing(null); setModal("entry"); }} onView={changeView} onCoach={() => plus ? setModal("coach") : setModal("pricing")} />;
-  else if (view === "transactions") page = <TransactionsPage items={monthTransactions} currency={currency} hidden={privacy} canImport={plan === "Lifetime"} onAdd={() => { setEditing(null); setModal("entry"); }} onEdit={(item) => { setEditing(item); setModal("entry"); }} onDelete={removeTransaction} onDeleteMany={removeMany} onImport={() => setModal(plan === "Lifetime" ? "statement" : "pricing")} />;
-  else if (view === "plan") page = <PlanPage budget={budget} categoryBudgets={categoryBudgets} metrics={metrics} currency={currency} hidden={privacy} onBudgetSave={saveBudget} onCategorySave={saveCategory} onCopyPrevious={copyPrevious} />;
-  else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
-  else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
+  if (view === "overview") page = <Overview transactions={monthTransactions} metrics={metrics} budget={budget} goals={goals} currency={currency} hidden={privacy} categoryBudgets={categoryBudgets} widgets={widgets} locale={locale} onAdd={() => { setEditing(null); setModal("entry"); }} onView={changeView} onCoach={() => plus ? setModal("coach") : setModal("pricing")} />;
+  else if (view === "transactions") page = <TransactionsPage items={monthTransactions} currency={currency} hidden={privacy} canImport={plan === "Lifetime"} locale={locale} onAdd={() => { setEditing(null); setModal("entry"); }} onEdit={(item) => { setEditing(item); setModal("entry"); }} onDelete={removeTransaction} onDeleteMany={removeMany} onImport={() => setModal(plan === "Lifetime" ? "statement" : "pricing")} />;
+  else if (view === "plan") page = <PlanPage budget={budget} categoryBudgets={categoryBudgets} metrics={metrics} currency={currency} hidden={privacy} locale={locale} onBudgetSave={saveBudget} onCategorySave={saveCategory} onCopyPrevious={copyPrevious} />;
+  else if (view === "recurring") page = <RecurringPage items={recurring} currency={currency} hidden={privacy} canUse={plus} locale={locale} onAdd={() => setModal("recurring")} onPost={postRecurring} onDelete={deleteRecurring} onUpgrade={() => setModal("pricing")} />;
+  else if (view === "goals") page = <GoalsPage goals={goals} currency={currency} hidden={privacy} canAddMore={plus || goals.length === 0} locale={locale} onAdd={() => setModal("goal")} onContribute={contribute} onArchive={archiveGoal} onUpgrade={() => setModal("pricing")} />;
   else if (view === "crypto") page = <CryptoPage holdings={cryptoHoldings} prices={cryptoPrices} history={cryptoHistory} period={cryptoPeriod} loading={cryptoLoading} currency={currency} hidden={privacy} plan={plan} onPeriod={setCryptoPeriod} onAdd={() => setModal("crypto")} onDelete={deleteCrypto} onUpgrade={() => setModal("pricing")} onRefresh={() => setCryptoRefresh((value) => value + 1)} />;
-  else if (view === "analytics") page = <AnalyticsPage metrics={metrics} previousMetrics={previousMetrics} categoryBudgets={categoryBudgets} currency={currency} hidden={privacy} />;
+  else if (view === "analytics") page = <AnalyticsPage metrics={metrics} previousMetrics={previousMetrics} categoryBudgets={categoryBudgets} currency={currency} hidden={privacy} locale={locale} />;
   else page = <SettingsPage user={user} profileName={profileName} avatarUrl={avatarUrl} currency={currency} fallbackBudget={fallbackBudget} plan={plan} privacy={privacy} notificationsEnabled={notificationsEnabled} widgets={widgets} canExport={plus} transactions={transactions} budgets={budgets} categoryBudgets={categoryRows} goals={goals} recurring={recurring} cryptoHoldings={cryptoHoldings} isAdmin={isAdmin} onProfile={updateProfile} onAvatar={uploadAvatar} onCurrency={(value) => saveSettings({ currency: value })} onPrivacy={(value) => saveSettings({ privacy_mode: value })} onNotifications={(value) => saveSettings({ notifications_enabled: value })} onWidgets={(value) => saveSettings({ dashboard_widgets: value })} onPortal={billingPortal} onUpgrade={() => setModal("pricing")} onAdmin={() => setModal("admin")} onDeleteAccount={() => setModal("delete-account")} onRestoreBackup={() => setModal("restore-backup")} locale={locale} onLocale={onLocale} copy={copy.settings} nativeApp={nativeApp} />;
 
   if (loading) return <div className="tw-loading">Loading your money space…</div>;
