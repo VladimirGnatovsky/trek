@@ -24,3 +24,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:1080px) and (min-width:761px){.tw-nav{padding-inline:24px}.tw-nav nav{display:none}.tw-nav>div{margin-left:auto}}
 .tw-landing{overflow:clip}.tw-nav{z-index:100}.tw-steps article:first-child h3{white-space:nowrap;font-size:16px;letter-spacing:-.05em}@media(max-width:760px){.tw-steps article:first-child h3{white-space:normal;font-size:17px}}
 html[lang="uk"] .tw-hero h1{font-size:clamp(44px,5.25vw,74px)}html[lang="pl"] .tw-hero h1{font-size:clamp(46px,5.6vw,78px)}@media(max-width:760px){html[lang="uk"] .tw-hero h1,html[lang="pl"] .tw-hero h1{font-size:clamp(40px,12vw,51px)}}
+.tw-theme-toggle{border-radius:50%}@media(max-width:760px){.tw-theme-toggle{width:30px;height:30px}.tw-language{border-right:0;padding-right:0}}

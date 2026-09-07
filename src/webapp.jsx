@@ -33,6 +33,8 @@ import { preferredLocale } from "../lib/locale.mjs";
 import { PUBLIC_COPY } from "./public-copy.js";
 import LanguageSwitch from "./language-switch.jsx";
 import LoadingScreen from "./loading-screen.jsx";
+import ThemeToggle from "./theme-toggle.jsx";
+import "./theme.css";
 
 const Cabinet = lazy(() => import("./cabinet-next.jsx"));
 const AuthScreen = lazy(() => import("./auth.jsx"));
@@ -221,7 +223,7 @@ function DemoVideo({ onClose, copy }) {
   return createPortal(<div className="tw-video-layer" role="presentation" onMouseDown={onClose}><section className="tw-video-modal" role="dialog" aria-modal="true" aria-label={copy.title} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="tw-eyebrow"><i /> {copy.eyebrow}</span><h2>{copy.title}</h2></div><button onClick={onClose} aria-label="Close video"><X size={21} /></button></header><video src={mobileGuideUrl} controls autoPlay playsInline preload="metadata">Your browser does not support embedded video.</video></section></div>, document.body);
 }
 
-function Landing({ onOpen, session, account, onLegal, locale, onLocale }) {
+function Landing({ onOpen, session, account, onLegal, locale, onLocale, theme, onTheme }) {
   const [showVideo, setShowVideo] = useState(false);
   const copy = PUBLIC_COPY[locale];
   return (
@@ -238,6 +240,7 @@ function Landing({ onOpen, session, account, onLegal, locale, onLocale }) {
         </nav>
         <div>
           <LanguageSwitch locale={locale} onChange={onLocale} className="tw-language" />
+          <ThemeToggle theme={theme} onChange={onTheme} locale={locale} className="tw-theme-toggle" />
           {session ? (
             <button className="tw-account-btn tw-account-avatar-btn" onClick={onOpen} aria-label="Open my account" title="Open my account">
               {account.avatarUrl
@@ -653,11 +656,19 @@ export default function TrekWeb({ nativeApp = false }) {
   const [screen, setScreen] = useState(nativeApp ? "workspace" : "landing");
   const [landingAccount, setLandingAccount] = useState({ name: "M", avatarUrl: "" });
   const [legalDocument, setLegalDocument] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem("trek-theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); } catch { return "dark"; }
+  });
   const [locale, setLocale] = useState(() => {
     const requested = new URLSearchParams(window.location.search).get("lang");
     try { return preferredLocale([requested, localStorage.getItem("trek-language"), ...(navigator.languages || [])].filter(Boolean)); } catch { return preferredLocale([requested, ...(navigator.languages || [])].filter(Boolean)); }
   });
   const changeLocale = (value) => { setLocale(value); try { localStorage.setItem("trek-language", value); const url = new URL(window.location.href); url.searchParams.set("lang", value); window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`); } catch {} };
+  const changeTheme = (value) => { const next = value === "light" ? "light" : "dark"; setTheme(next); try { localStorage.setItem("trek-theme", next); } catch {} };
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f4f6f2" : "#0b0d10");
+  }, [theme]);
   useEffect(() => {
     document.documentElement.lang = locale;
     const metadata = {
@@ -747,7 +758,7 @@ export default function TrekWeb({ nativeApp = false }) {
     );
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
-  if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} locale={locale} onLocale={changeLocale} /><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} locale={locale} onLocale={changeLocale} theme={theme} onTheme={changeTheme} /><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   if (!session) return <><Suspense fallback={<LoadingScreen locale={locale} secure />}><AuthScreen locale={locale} onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   return (
     <Suspense fallback={<LoadingScreen locale={locale} />}><Cabinet
@@ -758,6 +769,8 @@ export default function TrekWeb({ nativeApp = false }) {
         onProfileUpdate={updateProfile}
         locale={locale}
         onLocale={changeLocale}
+        theme={theme}
+        onTheme={changeTheme}
       /></Suspense>
   );
 }

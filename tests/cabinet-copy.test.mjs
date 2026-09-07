@@ -16,4 +16,7 @@ test("falls back to the source label when a translation is unavailable", () => {
 test("localizes settings and coach controls", () => {
   assert.equal(ui("pl", "Ask about your money pace."), "Zapytaj o tempo swoich finansów.");
   assert.equal(ui("uk", "Thinking…"), "Аналізую…");
+  assert.equal(ui("pl", "COLOR THEME"), "MOTYW KOLORYSTYCZNY");
+  assert.equal(ui("uk", "Analyze statement"), "Проаналізувати виписку");
+  assert.equal(ui("pl", "Continue to payment"), "Przejdź do płatności");
 });
