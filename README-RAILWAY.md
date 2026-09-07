@@ -25,6 +25,7 @@ In Railway, add these two variables in the service **Variables** tab, then redep
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_TURNSTILE_SITE_KEY=your-Cloudflare-Turnstile-site-key
 VITE_LEGAL_CONTROLLER_NAME=Your legal name or company
 VITE_LEGAL_CONTROLLER_ADDRESS=Your registered contact address
 VITE_PRIVACY_EMAIL=privacy@trekmoney.pl
@@ -37,6 +38,12 @@ essential session/preferences storage only; introduce analytics or advertising
 scripts only after connecting them to a separate opt-in consent choice.
 
 Use the public publishable key from Supabase Project Settings → API. Never add a Supabase `secret` or `service_role` key to the front-end or to this repository. The Railway server exposes only these two public values to the browser at runtime. In Supabase Authentication → URL Configuration, add your Railway public URL as a Redirect URL.
+
+For signup abuse protection, create a Cloudflare Turnstile widget for
+`trekmoney.pl`, put its public site key in `VITE_TURNSTILE_SITE_KEY`, and enable
+Turnstile under **Supabase Authentication → Bot and Abuse Protection** using the
+matching secret key. The registration form also contains a honeypot and rejects
+impossibly fast submissions; Turnstile is the server-verified protection.
 
 ## Persistent user data
 

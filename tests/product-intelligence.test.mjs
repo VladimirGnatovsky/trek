@@ -40,6 +40,14 @@ test("applies matching automation actions", () => {
   assert.equal(result.needsReview, true);
 });
 
+test("automation rules can turn matching salary entries into income", () => {
+  const result = applyAutomationRules({ merchant: "September salary", amount: 3000, type: "expense", category: "Other", needsReview: false }, [
+    { merchantContains: "salary", type: "any", actionType: "income", priority: 10, active: true },
+  ]);
+  assert.equal(result.type, "income");
+  assert.equal(result.category, "Other");
+});
+
 test("calculates balances from entries and transfers", () => {
   const balances = calculateAccountBalances([{ id: "cash", kind: "cash", openingBalance: 100 }, { id: "bank", kind: "bank", openingBalance: 500 }], [{ accountId: "cash", type: "expense", amount: 20 }, { accountId: "bank", type: "income", amount: 100 }], [{ fromAccountId: "bank", toAccountId: "cash", amount: 50, fee: 2 }]);
   assert.deepEqual(balances.map((account) => account.balance), [130, 548]);

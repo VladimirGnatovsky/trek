@@ -37,3 +37,10 @@ test("localizes smart insights and financial calendar", () => {
   assert.equal(ui("pl", "per day"), "dziennie");
   assert.equal(ui("uk", "Possible recurring payments"), "Можливі регулярні платежі");
 });
+
+test("localizes automation and account removal controls", () => {
+  assert.equal(ui("pl", "AUTOMATION RULES"), "REGUŁY AUTOMATYZACJI");
+  assert.equal(ui("uk", "Save rule"), "Зберегти правило");
+  assert.equal(ui("pl", "Delete permanently"), "Usuń trwale");
+  assert.equal(ui("uk", "Type DELETE to confirm"), "Введіть DELETE для підтвердження");
+});

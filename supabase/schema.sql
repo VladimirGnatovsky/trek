@@ -179,12 +179,14 @@ create table if not exists public.automation_rules (
   amount_above numeric check (amount_above is null or amount_above >= 0),
   entry_type text not null default 'any' check (entry_type in ('any', 'expense', 'income')),
   action_category text,
+  action_entry_type text not null default 'keep' check (action_entry_type in ('keep', 'expense', 'income')),
   action_needs_review boolean not null default false,
   active boolean not null default true,
   priority integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.automation_rules add column if not exists action_entry_type text not null default 'keep';
 create index if not exists automation_rules_user_idx on public.automation_rules (user_id, active, priority desc);
 
 -- Membership is deliberately separate from the editable profile. The browser can read

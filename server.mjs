@@ -25,7 +25,7 @@ const MIME = {
   ".ico": "image/x-icon",
 };
 const SECURITY_HEADERS = {
-  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https:; font-src 'self' data:; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -754,6 +754,7 @@ const server = createServer(async (req, res) => {
       VITE_LEGAL_CONTROLLER_NAME: process.env.VITE_LEGAL_CONTROLLER_NAME || "",
       VITE_LEGAL_CONTROLLER_ADDRESS: process.env.VITE_LEGAL_CONTROLLER_ADDRESS || "",
       VITE_PRIVACY_EMAIL: process.env.VITE_PRIVACY_EMAIL || "",
+      VITE_TURNSTILE_SITE_KEY: process.env.VITE_TURNSTILE_SITE_KEY || "",
     };
     res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" });
     return res.end(`window.__TREK_ENV__ = ${JSON.stringify(config).replace(/</g, "\\u003c")};`);

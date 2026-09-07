@@ -19,9 +19,10 @@ create index if not exists account_transfers_user_date_idx on public.account_tra
 create table if not exists public.automation_rules (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade default auth.uid(), name text not null,
   merchant_contains text, amount_above numeric check(amount_above is null or amount_above>=0), entry_type text not null default 'any' check(entry_type in ('any','expense','income')),
-  action_category text, action_needs_review boolean not null default false, active boolean not null default true, priority integer not null default 0,
+  action_category text, action_entry_type text not null default 'keep', action_needs_review boolean not null default false, active boolean not null default true, priority integer not null default 0,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
+alter table public.automation_rules add column if not exists action_entry_type text not null default 'keep';
 create index if not exists automation_rules_user_idx on public.automation_rules(user_id,active,priority desc);
 alter table public.financial_accounts enable row level security; alter table public.account_transfers enable row level security; alter table public.automation_rules enable row level security;
 drop policy if exists "Users manage own financial accounts" on public.financial_accounts; create policy "Users manage own financial accounts" on public.financial_accounts for all using(auth.uid()=user_id) with check(auth.uid()=user_id);

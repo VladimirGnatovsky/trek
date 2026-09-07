@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import "./auth.css";
 import "./auth-extra.css";
 import { LEGAL_VERSION } from "./legal.jsx";
 import { PUBLIC_COPY } from "./public-copy.js";
+import Turnstile from "./turnstile.jsx";
 
 export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [mode, setMode] = useState("login");
@@ -22,8 +23,14 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [website, setWebsite] = useState("");
+  const signupOpenedAt = useRef(Date.now());
   const configured = Boolean(supabase);
   const copy = PUBLIC_COPY[locale].auth;
+  const turnstileSiteKey = window.__TREK_ENV__?.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
+  const turnstileEnabled = Boolean(turnstileSiteKey) && window.location.protocol !== "capacitor:";
+  const receiveCaptcha = useCallback((token) => setCaptchaToken(token), []);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -35,11 +42,14 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
       : `${window.location.origin}`;
     let result;
     if (mode === "signup") {
+      if (website || Date.now() - signupOpenedAt.current < 1200) { setMessage(copy.suspicious); setBusy(false); return; }
+      if (turnstileEnabled && !captchaToken) { setMessage(copy.securityCheck); setBusy(false); return; }
       result = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectTo,
+          captchaToken: captchaToken || undefined,
           data: { full_name: name.trim(), legal_accepted_at: new Date().toISOString(), legal_version: LEGAL_VERSION },
         },
       });
@@ -129,7 +139,8 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
             </label>
           )}
           {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>{copy.legalStart} <button type="button" onClick={() => onLegal("terms")}>{copy.terms}</button> {copy.legalAnd} <button type="button" onClick={() => onLegal("privacy")}>{copy.privacy}</button>.</span></label>}
-          <button disabled={!configured || busy || (mode === "signup" && !legalAccepted)} className="ta-submit">
+          {mode === "signup" && <><label className="ta-honeypot" aria-hidden="true">Website<input tabIndex="-1" autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>{turnstileEnabled && <Turnstile siteKey={turnstileSiteKey} locale={locale} onToken={receiveCaptcha} />}</>}
+          <button disabled={!configured || busy || (mode === "signup" && (!legalAccepted || (turnstileEnabled && !captchaToken)))} className="ta-submit">
             {busy
               ? copy.wait
               : mode === "signup"
