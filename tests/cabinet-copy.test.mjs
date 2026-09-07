@@ -24,3 +24,16 @@ test("localizes settings and coach controls", () => {
   assert.equal(ui("pl", "Accounts"), "Konta");
   assert.equal(ui("uk", "Save transfer"), "Зберегти переказ");
 });
+
+test("localizes smart insights and financial calendar", () => {
+  assert.equal(ui("uk", "SMART INSIGHTS"), "РОЗУМНІ ПІДКАЗКИ");
+  assert.equal(ui("uk", "Your money, at a glance"), "Ваші фінанси одним поглядом");
+  assert.equal(ui("pl", "Calculated locally from your records"), "Obliczone lokalnie z Twoich danych");
+  assert.equal(ui("uk", "spent in the last 7 days"), "витрачено за останні 7 днів");
+  assert.equal(ui("uk", "Keep the pace steady"), "Тримайте стабільний темп");
+  assert.equal(ui("uk", "MONEY TIMELINE"), "ФІНАНСОВА ШКАЛА");
+  assert.equal(ui("uk", "Financial calendar"), "Фінансовий календар");
+  assert.equal(ui("uk", "SAFE FOR THE REST OF MONTH"), "БЕЗПЕЧНО ДО КІНЦЯ МІСЯЦЯ");
+  assert.equal(ui("pl", "per day"), "dziennie");
+  assert.equal(ui("uk", "Possible recurring payments"), "Можливі регулярні платежі");
+});
