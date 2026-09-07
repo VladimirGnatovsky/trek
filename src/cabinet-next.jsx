@@ -18,6 +18,7 @@ import { CryptoModal, CryptoPage } from "./crypto.jsx";
 import { normalizeMerchant, suggestedCategory } from "../lib/merchant-rules.mjs";
 import { validateBackup } from "../lib/backup.mjs";
 import { CABINET_COPY, categoryLabel, ui } from "./cabinet-copy.js";
+import { parseCoachAnswer } from "./coach-format.js";
 import LanguageSwitch from "./language-switch.jsx";
 import LoadingScreen from "./loading-screen.jsx";
 import ThemeToggle from "./theme-toggle.jsx";
@@ -392,20 +393,15 @@ const inlineCoachText = (text, key) => String(text).split(/(\*\*[^*]+\*\*|__[^_]
   if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) return <strong key={itemKey}>{part.slice(2, -2)}</strong>;
   if ((part.startsWith("*") && part.endsWith("*")) || (part.startsWith("_") && part.endsWith("_"))) return <em key={itemKey}>{part.slice(1, -1)}</em>;
   if (part.startsWith("`") && part.endsWith("`")) return <code key={itemKey}>{part.slice(1, -1)}</code>;
-  return part;
+  return part.split(/(\b\d[\d,.]*\s?(?:EUR|USD|PLN|UAH)\b|\b\d+(?:[.,]\d+)?%|(?:€|\$|₴)\s?\d[\d,.]*)/g).filter(Boolean).map((piece, pieceIndex) => /(?:EUR|USD|PLN|UAH|%|€|\$|₴)/.test(piece) ? <strong className="tc-coach-number" key={`${itemKey}-${pieceIndex}`}>{piece}</strong> : piece);
 });
 
 function CoachAnswer({ value }) {
-  const blocks = String(value || "").trim().split(/\n{2,}/).filter(Boolean);
-  return <article className="tc-coach-answer">{blocks.map((block, index) => {
-    const lines = block.split("\n").filter(Boolean);
-    const heading = lines[0]?.match(/^(#{1,3})\s+(.+)/);
-    if (heading && lines.length === 1) { const Tag = `h${Math.min(4, heading[1].length + 2)}`; return <Tag key={index}>{inlineCoachText(heading[2], index)}</Tag>; }
-    const list = lines.every((line) => /^\s*[-*]\s+/.test(line));
-    if (list) return <ul key={index}>{lines.map((line, lineIndex) => <li key={lineIndex}>{inlineCoachText(line.replace(/^\s*[-*]\s+/, ""), `${index}-${lineIndex}`)}</li>)}</ul>;
-    const ordered = lines.every((line) => /^\s*\d+[.)]\s+/.test(line));
-    if (ordered) return <ol key={index}>{lines.map((line, lineIndex) => <li key={lineIndex}>{inlineCoachText(line.replace(/^\s*\d+[.)]\s+/, ""), `${index}-${lineIndex}`)}</li>)}</ol>;
-    return <p key={index}>{lines.map((line, lineIndex) => <React.Fragment key={lineIndex}>{lineIndex > 0 && <br />}{inlineCoachText(line, `${index}-${lineIndex}`)}</React.Fragment>)}</p>;
+  return <article className="tc-coach-answer" tabIndex="0" aria-label="Trek Coach answer">{parseCoachAnswer(value).map((block, index) => {
+    if (block.type === "heading") return <h3 key={index}>{inlineCoachText(block.text, index)}</h3>;
+    if (block.type === "list") return <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{inlineCoachText(item, `${index}-${itemIndex}`)}</li>)}</ul>;
+    if (block.type === "ordered-list") return <ol key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{inlineCoachText(item, `${index}-${itemIndex}`)}</li>)}</ol>;
+    return <p key={index}>{inlineCoachText(block.text, index)}</p>;
   })}</article>;
 }
 
