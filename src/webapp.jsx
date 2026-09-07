@@ -32,6 +32,7 @@ import mobileGuideUrl from "../assets/trek-mobile-guide.webm?url";
 import { preferredLocale } from "../lib/locale.mjs";
 import { PUBLIC_COPY } from "./public-copy.js";
 import LanguageSwitch from "./language-switch.jsx";
+import LoadingScreen from "./loading-screen.jsx";
 
 const Cabinet = lazy(() => import("./cabinet-next.jsx"));
 const AuthScreen = lazy(() => import("./auth.jsx"));
@@ -729,7 +730,7 @@ export default function TrekWeb({ nativeApp = false }) {
     return () => { active = false; };
   }, [session?.user?.id, session?.user?.user_metadata?.full_name, screen]);
   if (session === undefined)
-    return <div className="tw-loading">Loading Trek…</div>;
+    return <LoadingScreen locale={locale} />;
   const updateProfile = async (fullName) => {
     const { data, error } = await supabase.auth.updateUser({
       data: { full_name: fullName },
@@ -747,9 +748,9 @@ export default function TrekWeb({ nativeApp = false }) {
   };
   const openAccount = () => setScreen(session ? "workspace" : "auth");
   if (!nativeApp && screen === "landing") return <><Landing onOpen={openAccount} session={session} account={landingAccount} onLegal={setLegalDocument} locale={locale} onLocale={changeLocale} /><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
-  if (!session) return <><Suspense fallback={<div className="tw-loading">Opening secure sign-in…</div>}><AuthScreen locale={locale} onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
+  if (!session) return <><Suspense fallback={<LoadingScreen locale={locale} secure />}><AuthScreen locale={locale} onBack={() => nativeApp ? null : setScreen("landing")} onLegal={setLegalDocument} /></Suspense><LegalCenter locale={locale} document={legalDocument} onClose={() => setLegalDocument(null)} /></>;
   return (
-    <Suspense fallback={<div className="tw-loading">Opening your money space…</div>}><Cabinet
+    <Suspense fallback={<LoadingScreen locale={locale} />}><Cabinet
         nativeApp={nativeApp}
         onExit={() => nativeApp ? null : setScreen("landing")}
         onSignOut={() => supabase.auth.signOut()}

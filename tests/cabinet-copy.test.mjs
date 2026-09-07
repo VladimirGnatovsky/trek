@@ -12,3 +12,8 @@ test("falls back to the source label when a translation is unavailable", () => {
   assert.equal(ui("pl", "Unknown future label"), "Unknown future label");
   assert.equal(ui("uk", "Add transaction"), "Додати транзакцію");
 });
+
+test("localizes settings and coach controls", () => {
+  assert.equal(ui("pl", "Ask about your money pace."), "Zapytaj o tempo swoich finansów.");
+  assert.equal(ui("uk", "Thinking…"), "Аналізую…");
+});
