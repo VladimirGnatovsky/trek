@@ -452,10 +452,16 @@ function EntryModal({ initial, isEditing = false, month, categoryRules, accounts
   const recognitionRef = useRef(null);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   useEffect(() => () => recognitionRef.current?.abort(), []);
-  const dictate = () => {
+  const dictate = async () => {
     if (listening) { recognitionRef.current?.stop(); return; }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) { setVoiceMessage(copy.voiceUnavailable); return; }
+    try {
+      const permission = await navigator.permissions?.query?.({ name: "microphone" });
+      if (permission?.state === "denied") { setVoiceMessage(copy.voicePermission); return; }
+    } catch {
+      // Some browsers expose SpeechRecognition but not microphone permissions.
+    }
     const recognition = new Recognition();
     recognitionRef.current = recognition;
     recognition.lang = LOCALE_TAGS[locale] || LOCALE_TAGS.en;
@@ -463,7 +469,13 @@ function EntryModal({ initial, isEditing = false, month, categoryRules, accounts
     recognition.maxAlternatives = 1;
     recognition.onstart = () => { setListening(true); setVoiceMessage(copy.voiceListening); };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => { setListening(false); setVoiceMessage(copy.voiceError); };
+    recognition.onerror = (event) => {
+      setListening(false);
+      if (event.error === "aborted") return;
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") setVoiceMessage(copy.voicePermission);
+      else if (event.error === "network") setVoiceMessage(copy.voiceNetwork);
+      else setVoiceMessage(copy.voiceError);
+    };
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript?.trim();
       if (!transcript) return;
@@ -472,10 +484,10 @@ function EntryModal({ initial, isEditing = false, month, categoryRules, accounts
       setCategoryTouched(true);
       setVoiceMessage(copy.voiceCaptured);
     };
-    recognition.start();
+    try { recognition.start(); } catch { setVoiceMessage(copy.voiceUnavailable); }
   };
   return <Modal onClose={onClose}><span className="tc-kicker">{isEditing ? copy.edit : copy.fresh}</span><h2>{isEditing ? copy.update : copy.log}</h2><form className="tc-form tn-form-grid" onSubmit={async (event) => { event.preventDefault(); const amount = Number(String(form.amount).replace(",", ".")); if (!form.merchant.trim() || amount <= 0) return; setBusy(true); const ok = await onSave({ ...form, amount, tags: typeof form.tags === "string" ? form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : form.tags }); setBusy(false); if (ok) onClose(); }}>
-    {!isEditing && <div className="tn-entry-capture tn-span-2"><div className="tn-receipt-scan"><button type="button" disabled={scanning} onClick={() => receiptRef.current?.click()}>{scanning ? <LoaderCircle className="tn-spin" size={18} /> : <Camera size={18} />}<span><b>{scanning ? copy.reading : copy.scan}</b><small>{copy.scanHelp}</small></span></button><input ref={receiptRef} hidden type="file" accept="image/png,image/jpeg,image/webp" capture="environment" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setScanning(true); setScanMessage(""); try { const parsed = await onScan(file); setForm((current) => ({ ...current, type: "expense", merchant: parsed.merchant || current.merchant, amount: parsed.amount ? String(parsed.amount) : current.amount, date: parsed.date || current.date, category: CATEGORIES.includes(parsed.category) ? parsed.category : current.category, note: parsed.note || current.note, tags: "receipt", needsReview: parsed.confidence !== "high", originalAmount: parsed.originalAmount, originalCurrency: parsed.originalCurrency, exchangeRate: parsed.exchangeRate, exchangeRateDate: parsed.exchangeRateDate })); const conversion = parsed.originalCurrency && parsed.currency && parsed.originalCurrency !== parsed.currency ? ` Converted ${parsed.originalAmount} ${parsed.originalCurrency} to ${parsed.amount} ${parsed.currency} using the official rate.` : ""; setScanMessage(`Receipt read.${conversion} Check the details before saving.`); } catch (error) { setScanMessage(error.message || "The receipt could not be read."); } finally { setScanning(false); } }} />{scanMessage && <p>{scanMessage}</p>}</div><div className="tn-voice-entry"><button type="button" className={listening ? "listening" : ""} onClick={dictate}><Mic size={18} /><span><b>{listening ? copy.voiceListening : copy.voice}</b><small>{copy.voiceHelp}</small></span></button>{voiceMessage && <p role="status">{voiceMessage}</p>}</div></div>}
+    {!isEditing && <div className="tn-entry-capture tn-span-2"><div className="tn-receipt-scan"><button type="button" disabled={scanning} onClick={() => receiptRef.current?.click()}>{scanning ? <LoaderCircle className="tn-spin" size={18} /> : <Camera size={18} />}<span><b>{scanning ? copy.reading : copy.scan}</b><small>{copy.scanHelp}</small></span></button><input ref={receiptRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setScanning(true); setScanMessage(""); try { const parsed = await onScan(file); setForm((current) => ({ ...current, type: "expense", merchant: parsed.merchant || current.merchant, amount: parsed.amount ? String(parsed.amount) : current.amount, date: parsed.date || current.date, category: CATEGORIES.includes(parsed.category) ? parsed.category : current.category, note: parsed.note || current.note, tags: "receipt", needsReview: parsed.confidence !== "high", originalAmount: parsed.originalAmount, originalCurrency: parsed.originalCurrency, exchangeRate: parsed.exchangeRate, exchangeRateDate: parsed.exchangeRateDate })); const conversion = parsed.originalCurrency && parsed.currency && parsed.originalCurrency !== parsed.currency ? ` Converted ${parsed.originalAmount} ${parsed.originalCurrency} to ${parsed.amount} ${parsed.currency} using the official rate.` : ""; setScanMessage(`Receipt read.${conversion} Check the details before saving.`); } catch (error) { setScanMessage(error.message || "The receipt could not be read."); } finally { setScanning(false); } }} />{scanMessage && <p>{scanMessage}</p>}</div><div className="tn-voice-entry"><button type="button" className={listening ? "listening" : ""} onClick={dictate}><Mic size={18} /><span><b>{listening ? copy.voiceListening : copy.voice}</b><small>{copy.voiceHelp}</small></span></button>{voiceMessage && <p role="status">{voiceMessage}</p>}</div></div>}
     <label>{copy.type}<select value={form.type} onChange={(event) => set("type", event.target.value)}><option value="expense">{copy.expense}</option><option value="income">{copy.income}</option></select></label>
     <label>{copy.merchant}<input autoFocus value={form.merchant} onChange={(event) => { const merchant = event.target.value; const category = !categoryTouched ? suggestedCategory(merchant, categoryRules) : null; setForm((current) => ({ ...current, merchant, ...(category ? { category } : {}) })); }} /></label>
     <label>{copy.amount}<input inputMode="decimal" value={form.amount} onChange={(event) => set("amount", event.target.value)} /></label>
