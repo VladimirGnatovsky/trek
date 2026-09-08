@@ -3,6 +3,8 @@
   "appName": "Trek",
   "webDir": "dist",
   "server": {
-    "hostname": "trekmoney.pl"
+    "hostname": "trekmoney.pl",
+    "iosScheme": "https",
+    "androidScheme": "https"
   }
 }
