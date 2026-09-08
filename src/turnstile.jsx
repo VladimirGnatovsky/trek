@@ -4,8 +4,24 @@ const SCRIPT_ID = "trek-turnstile-script";
 
 export default function Turnstile({ siteKey, locale, onToken, interactionOnly = false }) {
   const container = useRef(null);
+  const frame = useRef(null);
 
   useEffect(() => {
+    if (!interactionOnly) return undefined;
+    const receive = (event) => {
+      if (event.origin !== "https://trekmoney.pl" || event.source !== frame.current?.contentWindow) return;
+      if (event.data?.source !== "trek-native-turnstile") return;
+      onToken(event.data.token || "");
+    };
+    window.addEventListener("message", receive);
+    return () => {
+      window.removeEventListener("message", receive);
+      onToken("");
+    };
+  }, [interactionOnly, onToken]);
+
+  useEffect(() => {
+    if (interactionOnly) return undefined;
     if (!siteKey || !container.current) return undefined;
     let widgetId;
     let cancelled = false;
@@ -41,5 +57,9 @@ export default function Turnstile({ siteKey, locale, onToken, interactionOnly = 
     };
   }, [siteKey, locale, onToken, interactionOnly]);
 
-  return <div className={`ta-turnstile${interactionOnly ? " is-native" : ""}`} ref={container} aria-label="Security check" />;
+  if (interactionOnly) {
+    const params = new URLSearchParams({ sitekey: siteKey, language: locale === "uk" ? "uk" : locale });
+    return <iframe ref={frame} className="ta-turnstile ta-turnstile-frame" src={`https://trekmoney.pl/native-turnstile.html?${params}`} title="Security check" />;
+  }
+  return <div className="ta-turnstile" ref={container} aria-label="Security check" />;
 }

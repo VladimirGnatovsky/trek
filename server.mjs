@@ -763,7 +763,12 @@ const server = createServer(async (req, res) => {
   const candidate = requested.startsWith(root) ? requested : root;
   const file = existsSync(candidate) && (await stat(candidate)).isFile() ? candidate : path.join(root, "index.html");
   const immutable = file.includes(`${path.sep}assets${path.sep}`);
-  res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": MIME[path.extname(file)] || "text/html; charset=utf-8", "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-cache" });
+  const fileHeaders = { ...SECURITY_HEADERS };
+  if (file.endsWith(`${path.sep}native-turnstile.html`)) {
+    fileHeaders["Content-Security-Policy"] = "default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'unsafe-inline'; connect-src https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors capacitor: ionic: https://trekmoney.pl";
+    delete fileHeaders["X-Frame-Options"];
+  }
+  res.writeHead(200, { ...fileHeaders, "Content-Type": MIME[path.extname(file)] || "text/html; charset=utf-8", "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-cache" });
   createReadStream(file).pipe(res);
 });
 
