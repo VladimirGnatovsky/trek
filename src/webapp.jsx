@@ -77,9 +77,9 @@ const bars = [46, 58, 51, 68, 61, 82, 71, 65, 77, 58, 63, 49];
 const fmt = (v) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " €";
 
-function TrendChart() {
+function TrendChart({ label = "Spending over the last 12 months" }) {
   return (
-    <div className="tw-chart" aria-label="Spending over the last 12 months">
+    <div className="tw-chart" aria-label={label}>
       <div className="tw-gridlines">
         <i />
         <i />
@@ -103,16 +103,12 @@ function TrendChart() {
   );
 }
 
-function ScoreRing({ score = 78 }) {
+function ScoreRing({ score = 78, label = "money pulse" }) {
   return (
     <div className="tw-score" style={{ "--score": `${score * 3.6}deg` }}>
       <div>
         <b>{score}</b>
-        <span>
-          money
-          <br />
-          pulse
-        </span>
+        <span>{label}</span>
       </div>
     </div>
   );
@@ -157,16 +153,16 @@ function ProductPreview({ onOpen, copy }) {
               <em>{p.reserved}</em>
             </div>
             <div className="tw-preview-accounts"><Wallet size={14} /><span>{p.balance}</span><strong>3,086 €</strong></div>
-            <ScoreRing />
+            <ScoreRing label={p.pulse} />
           </div>
           <div className="tw-previewgrid">
             <div className="tw-preview-activity">
               <small>{p.lastSeven}</small>
               <b>528 €</b>
-              <TrendChart />
+              <TrendChart label={p.chartLabel} />
               <div className="tw-preview-transactions">
-                <span><i className="coffee"><ReceiptText size={12} /></i><b>Coffee Room</b><em>− 8 €</em></span>
-                <span><i className="shopping"><Wallet size={12} /></i><b>Market</b><em>− 42 €</em></span>
+                <span><i className="coffee"><ReceiptText size={12} /></i><b>{p.coffee}</b><em>− 8 €</em></span>
+                <span><i className="shopping"><Wallet size={12} /></i><b>{p.market}</b><em>− 42 €</em></span>
               </div>
             </div>
             <div className="tw-preview-stack">
@@ -309,9 +305,9 @@ function Landing({ onOpen, session, account, onLegal, locale, onLocale, theme, o
             <div className="tw-orbit one" />
             <div className="tw-orbit two" />
             <div className="tw-cash-card">
-              <span>SAFE TO SPEND TODAY</span>
+              <span>{copy.hero.art.safe}</span>
               <b>1,248 €</b>
-              <em>after planned expenses</em>
+              <em>{copy.hero.art.after}</em>
               <div className="tw-cash-line">
                 <i />
                 <i />
@@ -325,15 +321,15 @@ function Landing({ onOpen, session, account, onLegal, locale, onLocale, theme, o
             <div className="tw-float-card alert">
               <BellRing size={17} />
               <div>
-                <b>Keep the pace</b>
-                <span>You are inside plan</span>
+                <b>{copy.hero.art.pace}</b>
+                <span>{copy.hero.art.inside}</span>
               </div>
             </div>
             <div className="tw-float-card goal">
               <Target size={17} />
               <div>
-                <b>Summer trip</b>
-                <span>72% complete</span>
+                <b>{copy.hero.art.goal}</b>
+                <span>72% {copy.hero.art.complete}</span>
               </div>
             </div>
           </div>
