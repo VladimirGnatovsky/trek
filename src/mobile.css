@@ -47,7 +47,7 @@ body.trek-native .ta-brand {
 body.trek-native .ta-brand > div,
 body.trek-native .ta-brand footer { display: none; }
 body.trek-native .ta-brand-link { font-size: 22px; pointer-events: none; }
-body.trek-native .ta-form-wrap { display: block; padding: 34px 18px 40px; }
+body.trek-native .ta-form-wrap { display: block; padding: 34px 18px 40px; scroll-padding-top: calc(env(safe-area-inset-top) + 22px); }
 body.trek-native .ta-form {
   width: 100%;
   padding: 27px 21px;
@@ -55,7 +55,7 @@ body.trek-native .ta-form {
   box-shadow: 0 28px 80px rgba(0,0,0,.42);
 }
 body.trek-native .ta-form h2 { font-size: 34px; margin-top: 16px; }
-body.trek-native .ta-form input { min-height: 52px; border-radius: 7px; font-size: 16px; }
+body.trek-native .ta-form input { min-height: 52px; border-radius: 7px; font-size: 16px; scroll-margin-top: calc(env(safe-area-inset-top) + 120px); }
 body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
 
 @media (max-width: 760px) {

@@ -1,24 +1,28 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const SCRIPT_ID = "trek-turnstile-script";
 
-export default function Turnstile({ siteKey, locale, onToken, interactionOnly = false }) {
+export default function Turnstile({ siteKey, locale, onToken, onError, interactionOnly = false }) {
   const container = useRef(null);
   const frame = useRef(null);
+  const [frameVisible, setFrameVisible] = useState(false);
 
   useEffect(() => {
     if (!interactionOnly) return undefined;
     const receive = (event) => {
       if (event.origin !== "https://trekmoney.pl" || event.source !== frame.current?.contentWindow) return;
       if (event.data?.source !== "trek-native-turnstile") return;
-      onToken(event.data.token || "");
+      if (typeof event.data.visible === "boolean") setFrameVisible(event.data.visible);
+      if (event.data.token) onToken(event.data.token);
+      if (event.data.expired) onToken("");
+      if (event.data.error) onError?.(event.data.error);
     };
     window.addEventListener("message", receive);
     return () => {
       window.removeEventListener("message", receive);
       onToken("");
     };
-  }, [interactionOnly, onToken]);
+  }, [interactionOnly, onToken, onError]);
 
   useEffect(() => {
     if (interactionOnly) return undefined;
@@ -59,7 +63,7 @@ export default function Turnstile({ siteKey, locale, onToken, interactionOnly = 
 
   if (interactionOnly) {
     const params = new URLSearchParams({ sitekey: siteKey, language: locale === "uk" ? "uk" : locale });
-    return <iframe ref={frame} className="ta-turnstile ta-turnstile-frame" src={`https://trekmoney.pl/native-turnstile.html?${params}`} title="Security check" />;
+    return <iframe ref={frame} className={`ta-turnstile ta-turnstile-frame${frameVisible ? " is-visible" : ""}`} src={`https://trekmoney.pl/native-turnstile.html?${params}`} title="Security check" />;
   }
   return <div className="ta-turnstile" ref={container} aria-label="Security check" />;
 }

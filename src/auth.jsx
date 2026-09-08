@@ -145,7 +145,7 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
           )}
           {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>{copy.legalStart} <button type="button" onClick={() => onLegal("terms")}>{copy.terms}</button> {copy.legalAnd} <button type="button" onClick={() => onLegal("privacy")}>{copy.privacy}</button>.</span></label>}
           {mode === "signup" && <label className="ta-honeypot" aria-hidden="true">Website<input tabIndex="-1" autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>}
-          {turnstileEnabled && <Turnstile key={`${mode}-${captchaAttempt}`} siteKey={turnstileSiteKey} locale={locale} onToken={receiveCaptcha} interactionOnly={nativePlatform} />}
+          {turnstileEnabled && <Turnstile key={`${mode}-${captchaAttempt}`} siteKey={turnstileSiteKey} locale={locale} onToken={receiveCaptcha} onError={() => setMessage(copy.securityCheck)} interactionOnly={nativePlatform} />}
           <button disabled={!configured || busy || (mode === "signup" && !legalAccepted) || (turnstileEnabled && !captchaToken)} className="ta-submit">
             {busy
               ? copy.wait
