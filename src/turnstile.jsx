@@ -15,6 +15,7 @@ export default function Turnstile({ siteKey, locale, onToken }) {
         sitekey: siteKey,
         language: locale === "uk" ? "uk" : locale,
         theme: "auto",
+        size: "flexible",
         callback: (token) => onToken(token),
         "expired-callback": () => onToken(""),
         "error-callback": () => onToken(""),
@@ -39,5 +40,5 @@ export default function Turnstile({ siteKey, locale, onToken }) {
     };
   }, [siteKey, locale, onToken]);
 
-  return <div className="ta-turnstile" ref={container} />;
+  return <div className="ta-turnstile" ref={container} aria-label="Security check" />;
 }

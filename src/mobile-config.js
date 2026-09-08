@@ -3,4 +3,5 @@
 export const mobilePublicConfig = {
   supabaseUrl: "https://luqxpyzgemikavfrbunw.supabase.co",
   supabasePublishableKey: "sb_publishable_irbojxAWweg1QmKUPgUURw_gafDCsU8",
+  turnstileSiteKey: "0x4AAAAAAEr9np_c8BYitl1Y",
 };

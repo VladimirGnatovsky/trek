@@ -23,6 +23,32 @@ a {
     opacity 160ms ease, transform 160ms ease;
 }
 
+.tw-login,
+.tw-dark-btn,
+.tw-primary,
+.tw-play,
+.tw-account-btn,
+.tc-action,
+.tn-secondary,
+.tn-toolbar button,
+.tn-account-head-actions > button,
+.tn-import-actions > button,
+.tn-onboarding-actions > button,
+.tn-delete-actions button,
+.tn-prompt-chips button,
+.tn-budget-edit button,
+.tc-settings button,
+.tc-prices article button {
+  border-radius: 7px;
+}
+
+.tn-card-actions button,
+.tn-transfer-actions button,
+.tn-icon-button,
+.tn-edit-icon {
+  border-radius: 7px;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,

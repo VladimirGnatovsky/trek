@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,6 +15,7 @@ import "./auth-extra.css";
 import { LEGAL_VERSION } from "./legal.jsx";
 import { PUBLIC_COPY } from "./public-copy.js";
 import Turnstile from "./turnstile.jsx";
+import { mobilePublicConfig } from "./mobile-config.js";
 
 export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [mode, setMode] = useState("login");
@@ -29,8 +31,9 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const signupOpenedAt = useRef(Date.now());
   const configured = Boolean(supabase);
   const copy = PUBLIC_COPY[locale].auth;
-  const turnstileSiteKey = window.__TREK_ENV__?.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
-  const turnstileEnabled = Boolean(turnstileSiteKey) && window.location.protocol !== "capacitor:";
+  const nativePlatform = Capacitor.isNativePlatform();
+  const turnstileSiteKey = window.__TREK_ENV__?.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || (nativePlatform ? mobilePublicConfig.turnstileSiteKey : "");
+  const turnstileEnabled = Boolean(turnstileSiteKey);
   const receiveCaptcha = useCallback((token) => setCaptchaToken(token), []);
 
   const submit = async (event) => {
@@ -38,7 +41,7 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
     if (!configured) return;
     setBusy(true);
     setMessage("");
-    const redirectTo = window.location.protocol === "capacitor:"
+    const redirectTo = nativePlatform
       ? "https://trekmoney.pl/"
       : `${window.location.origin}`;
     let result;

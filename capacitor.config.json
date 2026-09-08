@@ -1,5 +1,8 @@
 {
   "appId": "com.vova.trek",
   "appName": "Trek",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "hostname": "trekmoney.pl"
+  }
 }

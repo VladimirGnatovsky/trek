@@ -24,6 +24,9 @@
   padding: 9px 12px;
   cursor: pointer;
   font-size: 12px;
+  align-items: center;
+  gap: 7px;
+  border-radius: 7px;
 }
 .tc-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .tc-form-error { color: #ff9f89 !important; }
