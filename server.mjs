@@ -10,6 +10,7 @@ const port = Number(process.env.PORT || 8080);
 const limits = new Map();
 const receiptLimits = new Map();
 const statementLimits = new Map();
+const nativeAuthLimits = new Map();
 const fxCache = new Map();
 const cryptoCache = new Map();
 let modelCache = { name: "", expiresAt: 0 };
@@ -39,7 +40,7 @@ const sendJson = (res, status, body) => {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Trek-Client",
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   });
   res.end(JSON.stringify(body));
@@ -75,6 +76,55 @@ const adminEmails = () => new Set(String(process.env.ADMIN_EMAILS || "").split("
 const authenticatedAdmin = async (authorization) => {
   const user = await getUser(authorization);
   return user && adminEmails().has(String(user.email || "").toLowerCase()) ? user : null;
+};
+
+const allowNativeAuthAttempt = (key, maximum, windowMs = 15 * 60_000) => {
+  const now = Date.now();
+  const recent = (nativeAuthLimits.get(key) || []).filter((time) => now - time < windowMs);
+  if (recent.length >= maximum) return false;
+  recent.push(now);
+  nativeAuthLimits.set(key, recent);
+  return true;
+};
+
+const nativeAuth = async (req, res) => {
+  try {
+    if (req.headers["x-trek-client"] !== "ios") return sendJson(res, 404, { error: "Not found." });
+    const { mode, email: suppliedEmail, password = "", name = "", redirectTo = "https://trekmoney.pl/" } = await getBody(req, 16_000);
+    const email = String(suppliedEmail || "").trim().toLowerCase().slice(0, 200);
+    if (!["login", "signup", "reset"].includes(mode) || !/^\S+@\S+\.\S+$/.test(email)) return sendJson(res, 400, { error: "Enter a valid email address." });
+    if (mode !== "reset" && (String(password).length < 6 || String(password).length > 200)) return sendJson(res, 400, { error: "Enter a valid password." });
+    const forwarded = String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+    const emailKey = createHash("sha256").update(email).digest("hex").slice(0, 24);
+    if (!allowNativeAuthAttempt(`ip:${forwarded}`, 12) || !allowNativeAuthAttempt(`email:${emailKey}`, mode === "signup" ? 4 : 7)) {
+      return sendJson(res, 429, { error: "Too many attempts. Try again in 15 minutes." });
+    }
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!supabaseUrl || !serviceKey) return sendJson(res, 503, { error: "Mobile sign-in is not configured." });
+    const endpoint = new URL(mode === "login" ? "/auth/v1/token" : mode === "signup" ? "/auth/v1/signup" : "/auth/v1/recover", supabaseUrl);
+    if (mode === "login") endpoint.searchParams.set("grant_type", "password");
+    if (mode !== "login") endpoint.searchParams.set("redirect_to", String(redirectTo).startsWith("https://trekmoney.pl") ? String(redirectTo) : "https://trekmoney.pl/");
+    const payload = mode === "reset" ? { email } : mode === "signup"
+      ? { email, password: String(password), data: { full_name: String(name).trim().slice(0, 100), legal_accepted_at: new Date().toISOString(), legal_version: "2026-09-04" } }
+      : { email, password: String(password) };
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = response.status === 429 ? "Too many attempts. Try again later." : String(data.msg || data.message || data.error_description || "Sign-in failed.");
+      return sendJson(res, response.status >= 500 ? 502 : response.status, { error: message });
+    }
+    if (mode === "reset") return sendJson(res, 200, { sent: true });
+    const session = data.access_token && data.refresh_token ? { access_token: data.access_token, refresh_token: data.refresh_token } : null;
+    return sendJson(res, 200, { session, confirmationRequired: mode === "signup" && !session });
+  } catch (error) {
+    console.error("Native authentication failed", error.message);
+    return sendJson(res, 500, { error: "Mobile sign-in is temporarily unavailable." });
+  }
 };
 
 const stripeRequest = async (endpoint, fields) => {
@@ -703,6 +753,10 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) return sendJson(res, 204, {});
   if (url.pathname === "/api/health") return sendJson(res, 200, { ok: true, service: "trek", time: new Date().toISOString() });
+  if (url.pathname === "/api/native-auth") {
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+    return nativeAuth(req, res);
+  }
   if (url.pathname === "/api/account") {
     if (req.method !== "DELETE") return sendJson(res, 405, { error: "Method not allowed." });
     return deleteAccount(req, res);

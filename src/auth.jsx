@@ -15,7 +15,6 @@ import "./auth-extra.css";
 import { LEGAL_VERSION } from "./legal.jsx";
 import { PUBLIC_COPY } from "./public-copy.js";
 import Turnstile from "./turnstile.jsx";
-import { mobilePublicConfig } from "./mobile-config.js";
 
 export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [mode, setMode] = useState("login");
@@ -32,8 +31,8 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const configured = Boolean(supabase);
   const copy = PUBLIC_COPY[locale].auth;
   const nativePlatform = Capacitor.isNativePlatform();
-  const turnstileSiteKey = window.__TREK_ENV__?.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || (nativePlatform ? mobilePublicConfig.turnstileSiteKey : "");
-  const turnstileEnabled = Boolean(turnstileSiteKey);
+  const turnstileSiteKey = window.__TREK_ENV__?.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
+  const turnstileEnabled = !nativePlatform && Boolean(turnstileSiteKey);
   const receiveCaptcha = useCallback((token) => setCaptchaToken(token), []);
 
   const submit = async (event) => {
@@ -46,7 +45,22 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
       : `${window.location.origin}`;
     let result;
     if (turnstileEnabled && !captchaToken) { setMessage(copy.securityCheck); setBusy(false); return; }
-    if (mode === "signup") {
+    if (nativePlatform) {
+      try {
+        const response = await fetch("https://trekmoney.pl/api/native-auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Trek-Client": "ios" },
+          body: JSON.stringify({ mode, email, password, name: name.trim(), redirectTo }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) result = { error: { message: body.error || copy.unavailable } };
+        else if (mode === "reset") setMessage(copy.resetSent);
+        else if (body.session?.access_token && body.session?.refresh_token) result = await supabase.auth.setSession(body.session);
+        else if (mode === "signup") setMessage(copy.confirm);
+      } catch {
+        result = { error: { message: copy.unavailable } };
+      }
+    } else if (mode === "signup") {
       if (website || Date.now() - signupOpenedAt.current < 1200) { setMessage(copy.suspicious); setBusy(false); return; }
       result = await supabase.auth.signUp({
         email,
