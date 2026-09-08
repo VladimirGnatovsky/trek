@@ -24,6 +24,7 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
   const [busy, setBusy] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const [website, setWebsite] = useState("");
   const signupOpenedAt = useRef(Date.now());
   const configured = Boolean(supabase);
@@ -41,9 +42,9 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
       ? "https://trekmoney.pl/"
       : `${window.location.origin}`;
     let result;
+    if (turnstileEnabled && !captchaToken) { setMessage(copy.securityCheck); setBusy(false); return; }
     if (mode === "signup") {
       if (website || Date.now() - signupOpenedAt.current < 1200) { setMessage(copy.suspicious); setBusy(false); return; }
-      if (turnstileEnabled && !captchaToken) { setMessage(copy.securityCheck); setBusy(false); return; }
       result = await supabase.auth.signUp({
         email,
         password,
@@ -56,13 +57,14 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
       if (!result.error)
         setMessage(copy.confirm);
     } else if (mode === "reset") {
-      result = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      result = await supabase.auth.resetPasswordForEmail(email, { redirectTo, captchaToken: captchaToken || undefined });
       if (!result.error)
         setMessage(copy.resetSent);
     } else {
-      result = await supabase.auth.signInWithPassword({ email, password });
+      result = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken || undefined } });
     }
-    if (result?.error) setMessage(result.error.message);
+    if (result?.error) setMessage(/captcha/i.test(result.error.message) ? copy.securityCheck : result.error.message);
+    if (turnstileEnabled) { setCaptchaToken(""); setCaptchaAttempt((value) => value + 1); }
     setBusy(false);
   };
 
@@ -139,8 +141,9 @@ export default function AuthScreen({ onBack, onLegal, locale = "en" }) {
             </label>
           )}
           {mode === "signup" && <label className="ta-legal-check"><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required /><span>{copy.legalStart} <button type="button" onClick={() => onLegal("terms")}>{copy.terms}</button> {copy.legalAnd} <button type="button" onClick={() => onLegal("privacy")}>{copy.privacy}</button>.</span></label>}
-          {mode === "signup" && <><label className="ta-honeypot" aria-hidden="true">Website<input tabIndex="-1" autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>{turnstileEnabled && <Turnstile siteKey={turnstileSiteKey} locale={locale} onToken={receiveCaptcha} />}</>}
-          <button disabled={!configured || busy || (mode === "signup" && (!legalAccepted || (turnstileEnabled && !captchaToken)))} className="ta-submit">
+          {mode === "signup" && <label className="ta-honeypot" aria-hidden="true">Website<input tabIndex="-1" autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>}
+          {turnstileEnabled && <Turnstile key={`${mode}-${captchaAttempt}`} siteKey={turnstileSiteKey} locale={locale} onToken={receiveCaptcha} />}
+          <button disabled={!configured || busy || (mode === "signup" && !legalAccepted) || (turnstileEnabled && !captchaToken)} className="ta-submit">
             {busy
               ? copy.wait
               : mode === "signup"
