@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 
 const SCRIPT_ID = "trek-turnstile-script";
 
-export default function Turnstile({ siteKey, locale, onToken }) {
+export default function Turnstile({ siteKey, locale, onToken, interactionOnly = false }) {
   const container = useRef(null);
 
   useEffect(() => {
@@ -16,6 +16,7 @@ export default function Turnstile({ siteKey, locale, onToken }) {
         language: locale === "uk" ? "uk" : locale,
         theme: "auto",
         size: "flexible",
+        appearance: interactionOnly ? "interaction-only" : "always",
         callback: (token) => onToken(token),
         "expired-callback": () => onToken(""),
         "error-callback": () => onToken(""),
@@ -38,7 +39,7 @@ export default function Turnstile({ siteKey, locale, onToken }) {
       if (widgetId !== undefined && window.turnstile) window.turnstile.remove(widgetId);
       onToken("");
     };
-  }, [siteKey, locale, onToken]);
+  }, [siteKey, locale, onToken, interactionOnly]);
 
-  return <div className="ta-turnstile" ref={container} aria-label="Security check" />;
+  return <div className={`ta-turnstile${interactionOnly ? " is-native" : ""}`} ref={container} aria-label="Security check" />;
 }
