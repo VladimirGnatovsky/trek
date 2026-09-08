@@ -119,8 +119,9 @@ function ScoreRing({ score = 78 }) {
 }
 
 function ProductPreview({ onOpen, copy }) {
+  const p = copy.preview;
   return (
-    <div className="tw-browser">
+    <div className="tw-browser tw-browser-v2">
       <div className="tw-browserbar">
         <span>
           <i />
@@ -135,39 +136,53 @@ function ProductPreview({ onOpen, copy }) {
       <div className="tw-previewbody">
         <aside>
           <div className="tw-mini-logo">T</div>
-          <b>Overview</b>
-          <span>Transactions</span>
-          <span>Plan</span>
-          <span>Goals</span>
-          <span>Reports</span>
+          <b>{p.overview}</b>
+          <span>{p.accounts}</span>
+          <span>{p.transactions}</span>
+          <span>{p.calendar}</span>
+          <span>{p.automation}</span>
         </aside>
         <main>
           <div className="tw-previewhead">
             <div>
-              <small>SEPTEMBER · 2026</small>
-              <h3>Your month</h3>
+              <small>{p.month}</small>
+              <h3>{p.title}</h3>
             </div>
             <span className="tw-avatar">V</span>
           </div>
           <div className="tw-kpirow">
             <div>
-              <small>SAFE TO SPEND THIS MONTH</small>
-              <b>1,248 €</b>
-              <em>8% ahead of plan</em>
+              <small>{p.safe}</small>
+              <b>64 € <small>{p.perDay}</small></b>
+              <em>{p.reserved}</em>
             </div>
+            <div className="tw-preview-accounts"><Wallet size={14} /><span>{p.balance}</span><strong>3,086 €</strong></div>
             <ScoreRing />
           </div>
           <div className="tw-previewgrid">
-            <div>
-              <small>MONTHLY SPENDING</small>
-              <b>2,842 €</b>
+            <div className="tw-preview-activity">
+              <small>{p.lastSeven}</small>
+              <b>528 €</b>
               <TrendChart />
+              <div className="tw-preview-transactions">
+                <span><i className="coffee"><ReceiptText size={12} /></i><b>Coffee Room</b><em>− 8 €</em></span>
+                <span><i className="shopping"><Wallet size={12} /></i><b>Market</b><em>− 42 €</em></span>
+              </div>
             </div>
-            <div className="tw-insight">
-              <Sparkles size={18} />
-              <small>TREK SIGNAL</small>
-              <b>Coffee is 34% above your normal pace.</b>
-              <span>Cut 6.50 € a day and keep 195 € this month.</span>
+            <div className="tw-preview-stack">
+              <div className="tw-insight">
+                <Sparkles size={17} />
+                <small>{p.signal}</small>
+                <b>{p.insight}</b>
+                <span>{p.insightBody}</span>
+              </div>
+              <div className="tw-preview-goal">
+                <Target size={16} />
+                <small>{p.goal}</small>
+                <b>{p.goalName}</b>
+                <i><em /></i>
+                <span>720 € / 1,000 € <strong>72%</strong></span>
+              </div>
             </div>
           </div>
         </main>
