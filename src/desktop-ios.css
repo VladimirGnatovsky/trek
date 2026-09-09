@@ -1,0 +1,154 @@
+/* Desktop companion to the native iOS tile language. */
+@media (min-width: 761px) {
+  .tc-app { background-color: #0c0f11; grid-template-columns: 244px 1fr; }
+  .tc-side {
+    width: 244px;
+    padding: 24px 16px;
+    background: rgba(17, 22, 24, .94);
+    border-color: #293234;
+    backdrop-filter: blur(22px);
+  }
+  .tc-side > button,
+  .tc-side-bottom button { min-height: 43px; padding: 0 13px; border-radius: 13px; }
+  .tc-side > button.on { background: #183b2f; box-shadow: inset 0 0 0 1px rgba(0,229,160,.08); }
+  .tc-side small {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--sans);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .035em;
+  }
+  .tc-brand i { border-radius: 8px; }
+  .tc-main { max-width: 1180px; padding: 30px 38px 70px; }
+  .tc-top-actions button { width: 38px; height: 38px; background: #171d1f; border-color: #303a3c; }
+  .tc-top-avatar,
+  .tc-top-actions > span { width: 38px; height: 38px; }
+  .tn-month-control { height: 42px; padding: 3px; border-radius: 21px; background: #171d1f; }
+  .tn-month-control button { width: 36px; height: 34px; border-radius: 17px; }
+
+  .tc-hero,
+  .tc-panel,
+  .tc-kpis > div,
+  .tc-plan-total,
+  .tn-intelligence,
+  .tn-accounts-total,
+  .tn-calendar-list > section { border-radius: 20px; }
+  .tc-hero { padding: 28px 30px; }
+  .tc-panel,
+  .tc-kpis > div { background: #14191c; border-color: #2d373a; }
+  .tc-panel { padding: 21px; }
+  .tc-kpis > div { min-height: 112px; padding: 19px; }
+  .tc-grid,
+  .tn-goals-grid,
+  .tn-account-grid,
+  .tcrypto-grid { gap: 16px; }
+
+  .tc-hero span,
+  .tc-panel > header span,
+  .tc-page-head span,
+  .tc-plan-total span,
+  .tc-goal-detail > div span,
+  .tc-settings span,
+  .tc-signal > span,
+  .tc-goal > span,
+  .tc-kpis span,
+  .tc-kicker,
+  .tn-setting-label,
+  .tn-intelligence > header span,
+  .tn-recurring-suggestions header span,
+  .tn-runway span,
+  .tn-accounts-total span,
+  .tn-account-card > small,
+  .tn-archived-accounts > span,
+  .tcrypto-allocation > span,
+  .tcrypto-list > header small {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--sans);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: .035em;
+  }
+  .tc-page-head h2 { letter-spacing: -.045em; }
+  .tc-panel h3,
+  .tc-modal-card h2 { letter-spacing: -.035em; }
+
+  .tc-action,
+  .tn-secondary,
+  .tn-toolbar button,
+  .tc-settings button,
+  .tc-upload,
+  .tn-prompt-chips button,
+  .tn-import-actions > button,
+  .tn-delete-actions button { min-height: 43px; border-radius: 13px; }
+  .tc-action { padding-inline: 18px; }
+  .tn-toolbar { padding: 12px; border-radius: 18px; }
+  .tn-search,
+  .tn-toolbar input,
+  .tn-toolbar select,
+  .tc-form input,
+  .tc-form select,
+  .tc-form textarea,
+  .tc-inline input,
+  .tn-budget-row input,
+  .tn-goal-card form input {
+    border-radius: 12px;
+    background-color: #101517;
+  }
+  .tn-search { min-height: 44px; }
+  .tc-form input,
+  .tc-form select { min-height: 48px; padding-inline: 14px; }
+  .tc-form textarea { border-radius: 14px; }
+
+  .tn-category-badge,
+  .tc-budget-row .tn-category-badge,
+  .tn-calendar-list article > span,
+  .tn-transfer-list article > span { border-radius: 11px; }
+  .tc-signal-icon,
+  .tc-goal-big,
+  .tn-account-card header > span,
+  .tn-automation-presets article > span,
+  .tn-automation-list > article > span { border-radius: 12px; }
+  .tn-account-card,
+  .tn-goal-card,
+  .tn-insight-grid article,
+  .tn-automation-presets article,
+  .tc-prices article,
+  .tn-import-summary > div,
+  .tn-restore-counts > div { border-radius: 16px; }
+
+  .tc-choice,
+  .tcrypto-periods {
+    width: fit-content;
+    padding: 4px;
+    gap: 3px;
+    border: 1px solid #303a3c;
+    border-radius: 17px;
+    background: #0d1214;
+  }
+  .tc-choice button,
+  .tcrypto-periods button { min-height: 36px; margin: 0; border: 0; border-radius: 13px; }
+  .tc-choice button.on,
+  .tcrypto-periods button.on { box-shadow: 0 5px 16px rgba(0,229,160,.12); }
+
+  .tn-transaction-actions button,
+  .tn-card-actions button,
+  .tcrypto-row-actions button,
+  .tn-account-card header .tn-card-actions button,
+  .tn-automation-list .tn-edit-icon,
+  .tn-automation-list .tn-icon-button { border-radius: 10px; }
+  .tn-transaction-actions button:hover,
+  .tn-card-actions button:hover,
+  .tcrypto-row-actions button:hover { background: #232b2d; }
+  .tc-modal-card { border-radius: 24px; border-color: #384346; }
+  .tc-close { width: 38px; height: 38px; border-radius: 19px; }
+  .tn-notification-center,
+  .tn-toast { border-radius: 18px; overflow: hidden; }
+
+  button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .12s ease; }
+  button:active:not(:disabled) { transform: scale(.98); }
+}
+
+@media (min-width: 761px) {
+  html[data-theme="light"] .tc-side { background: rgba(241,245,242,.95); }
+  html[data-theme="light"] .tc-choice,
+  html[data-theme="light"] .tcrypto-periods { background: #e9eeeb; border-color: #ced8d2; }
+}
