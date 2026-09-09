@@ -304,6 +304,88 @@ body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
     color: #06100c;
     box-shadow: 0 9px 24px rgba(0,229,160,.28);
   }
+
+  /* Native type: quiet iOS-style labels instead of the dashboard/AI mono look. */
+  body.trek-native .tc-hero span,
+  body.trek-native .tc-panel > header span,
+  body.trek-native .tc-page-head span,
+  body.trek-native .tc-plan-total span,
+  body.trek-native .tc-goal-detail > div span,
+  body.trek-native .tc-settings span,
+  body.trek-native .tc-signal > span,
+  body.trek-native .tc-goal > span,
+  body.trek-native .tc-kpis span,
+  body.trek-native .tc-kicker,
+  body.trek-native .tn-setting-label,
+  body.trek-native .tn-intelligence > header span,
+  body.trek-native .tn-recurring-suggestions header span,
+  body.trek-native .tn-runway span,
+  body.trek-native .tn-accounts-total span,
+  body.trek-native .tn-account-card > small,
+  body.trek-native .tn-archived-accounts > span,
+  body.trek-native .tn-calendar-list time span,
+  body.trek-native .tn-notification-center > footer {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--sans);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: .035em;
+  }
+  body.trek-native .tc-page-head h2,
+  body.trek-native .tc-modal-card h2,
+  body.trek-native .tc-panel h3 { letter-spacing: -.035em; }
+
+  /* Shared grouped-tile treatment across every native screen. */
+  body.trek-native .tn-intelligence,
+  body.trek-native .tn-runway,
+  body.trek-native .tn-accounts-total,
+  body.trek-native .tc-plan-total,
+  body.trek-native .tn-calendar-list > section,
+  body.trek-native .tn-import-start > label,
+  body.trek-native .tn-restore-picker label { border-radius: 20px; overflow: hidden; }
+  body.trek-native .tn-insight-grid article,
+  body.trek-native .tn-automation-presets article,
+  body.trek-native .tn-import-summary > div,
+  body.trek-native .tn-restore-counts > div { border-radius: 16px; }
+  body.trek-native .tn-account-card,
+  body.trek-native .tn-goal-card { border-radius: 20px; }
+  body.trek-native .tn-account-card header > span,
+  body.trek-native .tn-transfer-list article > span,
+  body.trek-native .tn-calendar-list article > span,
+  body.trek-native .tn-recurring-suggestions > article > span,
+  body.trek-native .tn-automation-presets article > span,
+  body.trek-native .tn-automation-list > article > span,
+  body.trek-native .tn-category-badge { border-radius: 11px; }
+  body.trek-native .tc-choice {
+    width: fit-content;
+    max-width: 100%;
+    padding: 4px;
+    gap: 3px;
+    border: 1px solid #303a3b;
+    border-radius: 18px;
+    background: #0f1416;
+  }
+  body.trek-native .tc-choice button { min-height: 40px; margin: 0; border: 0; border-radius: 14px; }
+  body.trek-native .tc-choice button.on { box-shadow: 0 5px 15px rgba(0,229,160,.16); }
+  body.trek-native .tc-form input,
+  body.trek-native .tc-form select,
+  body.trek-native .tc-form textarea,
+  body.trek-native .tc-inline input,
+  body.trek-native .tn-search,
+  body.trek-native .tn-toolbar input,
+  body.trek-native .tn-toolbar select {
+    border-color: #343f3c;
+    background-color: #202628;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  }
+  body.trek-native .tn-setting-stack > button,
+  body.trek-native .tn-settings-column > .tc-panel > button,
+  body.trek-native .tc-upload { min-height: 46px; border-radius: 14px; }
+  body.trek-native .tn-transaction-table,
+  body.trek-native .tn-recurring-list,
+  body.trek-native .tn-transfer-list,
+  body.trek-native .tn-automation-list { border-radius: 20px; }
+  body.trek-native .tn-notification-center { border-radius: 20px; overflow: hidden; }
 }
 
 html[data-theme="light"] .tm-more-page { background: #dfe3e0; }
@@ -314,6 +396,17 @@ html[data-theme="light"] .tm-more-profile,
 html[data-theme="light"] .tm-more-group { background: #fff; border-color: #dce1de; box-shadow: 0 12px 30px rgba(30,50,40,.06); }
 html[data-theme="light"] .tm-more-row { color: #162019; border-bottom-color: #e2e6e3; }
 html[data-theme="light"] .tm-more-row.danger { color: #c74736; }
+
+@media (max-width: 760px) {
+  html[data-theme="light"] body.trek-native .tc-choice { background: #e8ece9; border-color: #d0d8d3; }
+  html[data-theme="light"] body.trek-native .tc-form input,
+  html[data-theme="light"] body.trek-native .tc-form select,
+  html[data-theme="light"] body.trek-native .tc-form textarea,
+  html[data-theme="light"] body.trek-native .tc-inline input,
+  html[data-theme="light"] body.trek-native .tn-search,
+  html[data-theme="light"] body.trek-native .tn-toolbar input,
+  html[data-theme="light"] body.trek-native .tn-toolbar select { background-color: #f4f6f4; border-color: #cbd6d0; }
+}
 
 @media (max-width: 380px) {
   body.trek-native .tc-native .tc-main { padding-inline: 11px; }
