@@ -41,15 +41,12 @@
   color: #f6f7f7;
 }
 .tm-more-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
   min-height: 82px;
   display: grid;
   grid-template-columns: 84px 1fr 84px;
   align-items: center;
-  background: rgba(23,25,27,.92);
-  backdrop-filter: blur(18px);
+  background: #17191b;
 }
 .tm-more-header h1 { margin: 0; text-align: center; font-size: 24px; letter-spacing: -.03em; }
 .tm-more-header button {
@@ -132,12 +129,12 @@ body.trek-native .ta-form-wrap { display: block; padding: 34px 18px 40px; scroll
 body.trek-native .ta-form {
   width: 100%;
   padding: 27px 21px;
-  border-radius: 12px;
+  border-radius: 24px;
   box-shadow: 0 28px 80px rgba(0,0,0,.42);
 }
 body.trek-native .ta-form h2 { font-size: 34px; margin-top: 16px; }
-body.trek-native .ta-form input { min-height: 52px; border-radius: 7px; font-size: 16px; scroll-margin-top: calc(env(safe-area-inset-top) + 120px); }
-body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
+body.trek-native .ta-form input { min-height: 52px; border-radius: 14px; font-size: 16px; scroll-margin-top: calc(env(safe-area-inset-top) + 120px); }
+body.trek-native .ta-submit { min-height: 52px; border-radius: 15px; }
 
 @media (max-width: 760px) {
   body.trek-native .tc-native { min-height: 100vh; background-size: 28px 28px; }
@@ -208,7 +205,8 @@ body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
   body.trek-native .tc-signal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   body.trek-native .tc-signal-actions button { justify-content: center; margin: 0; border: 1px solid #315344; }
   body.trek-native .tc-page { margin-top: 18px; }
-  body.trek-native .tc-page-head { margin-bottom: 18px; }
+  body.trek-native .tc-page-head { margin-bottom: 18px; display: grid; align-items: start; gap: 15px; }
+  body.trek-native .tc-page-head > .tc-action { width: 100%; min-height: 50px; }
   body.trek-native .tc-page-head h2 { font-size: 32px; margin-bottom: 8px; }
   body.trek-native .tc-page-head p { line-height: 1.55; }
   body.trek-native .tn-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; border-radius: 18px; }
@@ -386,6 +384,105 @@ body.trek-native .ta-submit { min-height: 52px; border-radius: 7px; }
   body.trek-native .tn-transfer-list,
   body.trek-native .tn-automation-list { border-radius: 20px; }
   body.trek-native .tn-notification-center { border-radius: 20px; overflow: hidden; }
+
+  body.trek-native .tcrypto-allocation > span,
+  body.trek-native .tcrypto-list > header small,
+  body.trek-native .tcrypto-chart output small,
+  body.trek-native .tcrypto-donut small {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--sans);
+    font-weight: 650;
+    letter-spacing: .025em;
+  }
+  body.trek-native .tcrypto-head-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  body.trek-native .tcrypto-head-actions > button { border-radius: 15px; }
+  body.trek-native .tcrypto-periods {
+    padding: 3px;
+    gap: 2px;
+    border-radius: 17px;
+    background: #0d1214;
+  }
+  body.trek-native .tcrypto-periods button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  body.trek-native .tcrypto-periods button.on { box-shadow: 0 5px 15px rgba(0,229,160,.14); }
+  body.trek-native .tcrypto-list article { min-height: 62px; }
+  body.trek-native .tcrypto-row-actions button { border-radius: 12px; }
+
+  body.trek-native .tn-month-control {
+    padding: 3px;
+    border-radius: 21px;
+    background: #171d1f;
+  }
+  body.trek-native .tn-month-control button { width: 38px; height: 36px; border-radius: 18px; }
+  body.trek-native .tn-month-control strong { letter-spacing: -.01em; }
+
+  body.trek-native .tn-account-grid { grid-template-columns: 1fr; gap: 10px; }
+  body.trek-native .tn-account-card { padding: 17px; }
+  body.trek-native .tn-account-card header { margin-bottom: 13px; }
+  body.trek-native .tn-account-card p { min-height: 0; font-size: 12px; line-height: 1.4; }
+
+  body.trek-native .tn-dashboard-settings label {
+    min-height: 52px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 1px solid #30383a;
+    font-size: 15px;
+  }
+  body.trek-native .tn-dashboard-settings label:last-child { border-bottom: 0; }
+  body.trek-native .tn-dashboard-settings input[type="checkbox"] {
+    order: 2;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 49px;
+    height: 29px;
+    margin: 0;
+    flex: 0 0 49px;
+    border: 0;
+    border-radius: 15px;
+    background-color: #555b5e;
+    background-image: radial-gradient(circle at 14px 50%, #fff 0 10px, transparent 11px);
+    transition: background-color .2s ease, background-position .2s ease;
+  }
+  body.trek-native .tn-dashboard-settings input[type="checkbox"]:checked {
+    background-color: #00c98c;
+    background-image: radial-gradient(circle at 35px 50%, #fff 0 10px, transparent 11px);
+  }
+
+  body.trek-native .tn-quick-repeat > div {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+  body.trek-native .tn-quick-repeat > div::-webkit-scrollbar { display: none; }
+  body.trek-native .tn-quick-repeat button { scroll-snap-align: start; border-radius: 15px; }
+
+  body.trek-native .tn-calendar-list article > button,
+  body.trek-native .tn-recurring-suggestions .tc-action,
+  body.trek-native .tn-automation-presets button { min-height: 40px; border-radius: 12px; }
+  body.trek-native .tn-card-actions button,
+  body.trek-native .tn-transaction-actions button,
+  body.trek-native .tn-recurring-list article > button,
+  body.trek-native .tn-automation-list .tn-edit-icon,
+  body.trek-native .tn-automation-list .tn-icon-button {
+    border-radius: 12px;
+    touch-action: manipulation;
+  }
+  body.trek-native button,
+  body.trek-native label,
+  body.trek-native input,
+  body.trek-native select { -webkit-tap-highlight-color: transparent; }
+  body.trek-native button:active { transform: scale(.975); }
+  body.trek-native button:disabled:active { transform: none; }
 }
 
 html[data-theme="light"] .tm-more-page { background: #dfe3e0; }
@@ -406,6 +503,11 @@ html[data-theme="light"] .tm-more-row.danger { color: #c74736; }
   html[data-theme="light"] body.trek-native .tn-search,
   html[data-theme="light"] body.trek-native .tn-toolbar input,
   html[data-theme="light"] body.trek-native .tn-toolbar select { background-color: #f4f6f4; border-color: #cbd6d0; }
+  html[data-theme="light"] body.trek-native .tn-month-control { background: #fff; border-color: #d5ddd8; }
+  html[data-theme="light"] body.trek-native .tn-dashboard-settings label { border-bottom-color: #dce3de; }
+  html[data-theme="light"] body.trek-native .tn-dashboard-settings input[type="checkbox"] { background-color: #b7beb9; }
+  html[data-theme="light"] body.trek-native .tn-dashboard-settings input[type="checkbox"]:checked { background-color: #00a974; }
+  html[data-theme="light"] body.trek-native .tcrypto-periods { background: #e8ece9; }
 }
 
 @media (max-width: 380px) {
