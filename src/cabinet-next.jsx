@@ -651,6 +651,48 @@ function SettingsPage({ user, profileName, avatarUrl, currency, fallbackBudget, 
   </div></section>;
 }
 
+const MOBILE_MORE_COPY = {
+  en: { title: "More", done: "Done", money: "MONEY", planning: "PLANNING", insights: "INSIGHTS", account: "ACCOUNT", membership: "Membership" },
+  pl: { title: "Więcej", done: "Gotowe", money: "FINANSE", planning: "PLANOWANIE", insights: "ANALIZY", account: "KONTO", membership: "Subskrypcja" },
+  uk: { title: "Більше", done: "Готово", money: "ФІНАНСИ", planning: "ПЛАНУВАННЯ", insights: "АНАЛІТИКА", account: "ОБЛІКОВИЙ ЗАПИС", membership: "Підписка" },
+};
+
+function MobileMoreScreen({ user, locale, localizedNav, view, profileName, avatarUrl, plan, lockedView, onSelect, onPlans, onSettings, onSignOut, onClose, copy }) {
+  const text = MOBILE_MORE_COPY[locale] || MOBILE_MORE_COPY.en;
+  const nav = Object.fromEntries(localizedNav.map(([id, label, Icon]) => [id, { label, Icon }]));
+  const row = (id, tone) => {
+    const item = nav[id];
+    if (!item) return null;
+    const Icon = item.Icon;
+    return <button key={id} className={`tm-more-row${view === id ? " on" : ""}`} onClick={() => onSelect(id)}>
+      <i className={`tm-more-row-icon ${tone}`}><Icon size={20} /></i>
+      <span>{item.label}</span>
+      {lockedView(id) && <small>Plus</small>}
+      <ChevronRight size={18} />
+    </button>;
+  };
+  return createPortal(<div className="tm-more-page" role="dialog" aria-modal="true" aria-label={text.title}>
+    <div className="tm-more-surface">
+      <header className="tm-more-header"><span aria-hidden="true" /><h1>{text.title}</h1><button onClick={onClose}>{text.done}</button></header>
+      <div className="tm-more-content">
+        <section className="tm-more-profile">
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : <i>{profileName.charAt(0).toUpperCase()}</i>}
+          <div><strong>{profileName}</strong><small>{user.email}</small></div>
+          <ChevronRight size={19} />
+        </section>
+        <h2>{text.money}</h2><section className="tm-more-group">{row("accounts", "mint")}</section>
+        <h2>{text.planning}</h2><section className="tm-more-group">{row("calendar", "blue")}{row("recurring", "orange")}{row("automation", "violet")}{row("goals", "pink")}</section>
+        <h2>{text.insights}</h2><section className="tm-more-group">{row("crypto", "gold")}{row("analytics", "cyan")}</section>
+        <h2>{text.account}</h2><section className="tm-more-group">
+          <button className="tm-more-row" onClick={onPlans}><i className="tm-more-row-icon mint"><CreditCard size={20} /></i><span>{text.membership}</span><small>{plan}</small><ChevronRight size={18} /></button>
+          <button className={`tm-more-row${view === "settings" ? " on" : ""}`} onClick={onSettings}><i className="tm-more-row-icon gray"><Settings size={20} /></i><span>{copy.settings}</span><ChevronRight size={18} /></button>
+          <button className="tm-more-row danger" onClick={onSignOut}><i className="tm-more-row-icon red"><LogOut size={20} /></i><span>{copy.signout}</span></button>
+        </section>
+      </div>
+    </div>
+  </div>, document.body);
+}
+
 export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, locale = "en", onLocale, theme = "dark", onTheme, nativeApp = false }) {
   const copy = CABINET_COPY[locale] || CABINET_COPY.en;
   const localizedNav = NAV.map(([id, Icon], index) => [id, copy.nav[index], Icon]);
@@ -662,6 +704,12 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   const [onboardingCompleted, setOnboardingCompleted] = useState(true); const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(true); const [dataError, setDataError] = useState(""); const [notice, setNotice] = useState(false); const [mobileNav, setMobileNav] = useState(false); const [toast, setToast] = useState(null); const [isAdmin, setIsAdmin] = useState(false); const [online, setOnline] = useState(() => navigator.onLine);
   const plus = plan !== "Start";
+  useEffect(() => {
+    if (!nativeApp || !mobileNav) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [mobileNav, nativeApp]);
   const fromTransaction = (row) => ({ id: row.id, merchant: row.merchant, category: row.category, type: row.entry_type, amount: Number(row.amount), date: row.occurred_on, accountId: row.account_id || null, note: row.note || "", tags: row.tags || [], needsReview: row.needs_review || false, originalAmount: row.original_amount == null ? null : Number(row.original_amount), originalCurrency: row.original_currency, exchangeRate: row.exchange_rate == null ? null : Number(row.exchange_rate), exchangeRateDate: row.exchange_rate_date, importHash: row.import_hash, importSource: row.import_source, color: row.entry_type === "income" ? COLORS[1] : COLORS[CATEGORIES.indexOf(row.category) % COLORS.length] || COLORS[0] });
   const fromGoal = (row) => ({ id: row.id, name: row.name, target: Number(row.target_amount), saved: Number(row.saved_amount), deadline: row.deadline, icon: row.icon, color: row.color, status: row.status });
   const fromRecurring = (row) => ({ id: row.id, merchant: row.merchant, category: row.category, type: row.entry_type, amount: Number(row.amount), day: row.day_of_month, active: row.active, lastPostedMonth: row.last_posted_month });
@@ -923,7 +971,7 @@ export default function Cabinet({ onExit, onSignOut, user, onProfileUpdate, loca
   return <div className={`tc-app${nativeApp ? " tc-native" : ""}`}><aside className="tc-side"><button className="tc-brand" onClick={onExit}><i><ArrowUpRight size={17} /></i> Trek</button><small>{copy.shell.personal}</small>{localizedNav.map(([id, label, Icon]) => <button key={id} className={`${view === id ? "on" : ""}${lockedView(id) ? " locked" : ""}`} onClick={() => changeView(id)}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<div className="tc-side-bottom"><button onClick={() => setModal("pricing")}><CreditCard size={17} /> {plan} {copy.shell.plan}</button><button onClick={() => setView("settings")}><Settings size={17} /> {copy.shell.settings}</button>{!nativeApp && <button onClick={onExit}><ArrowLeft size={16} /> {copy.shell.back}</button>}<button onClick={onSignOut}><LogOut size={17} /> {copy.shell.signout}</button></div></aside>
     <main className="tc-main"><header className="tc-top"><div className="tc-mobile-brand"><button onClick={() => setMobileNav(!mobileNav)} aria-label="Open navigation"><Menu size={19} /></button><span className="tc-mobile-mark" aria-hidden="true"><ArrowUpRight size={16} /></span><b>Trek</b></div><div className="tn-top-center">{!["settings", "crypto", "accounts"].includes(view) && <MonthControl value={month} onChange={setMonth} locale={locale} />}</div><div className="tc-top-actions"><ThemeToggle theme={theme} onChange={onTheme} locale={locale} /><button className="tn-notification-button" onClick={() => setNotice(!notice)} aria-label={`Open notifications${notificationItems.length ? `, ${notificationItems.length} unread` : ""}`}><Bell size={18} />{notificationItems.length > 0 && <i>{notificationItems.length}</i>}</button><button onClick={() => setPrivacy(!privacy)} title="Temporarily hide amounts" aria-label={privacy ? "Show amounts" : "Hide amounts"}>{privacy ? <Eye size={17} /> : <EyeOff size={17} />}</button>{avatarUrl ? <img className="tc-top-avatar" src={avatarUrl} alt="Profile" /> : <span>{profileName.charAt(0).toUpperCase()}</span>}</div>{notice && <NotificationCenter items={notificationItems} currency={currency} hidden={privacy} copy={copy.notices} onPost={postRecurring} onSelect={(nextView) => { setView(nextView); setNotice(false); }} />}</header>{!online && <div className="tn-offline" role="status"><WifiOff size={15} /><span>{copy.shell.offline}</span></div>}{dataError && <div className="tn-error"><AlertTriangle size={16} /> <span>{dataError}</span><button onClick={() => setDataError("")}><X size={15} /></button></div>}{page}</main>
     {nativeApp && <nav className="tm-bottom-nav" aria-label="Main navigation"><button className={view === "overview" ? "on" : ""} onClick={() => changeView("overview")}><LayoutDashboard size={20} /><span>{copy.nav[0]}</span></button><button className={view === "transactions" ? "on" : ""} onClick={() => changeView("transactions")}><ReceiptText size={20} /><span>{copy.shell.activity}</span></button><button className="tm-add" onClick={() => { setEditing(null); setEntryDraft(null); setModal("entry"); }} aria-label="Add transaction"><Plus size={25} /></button><button className={view === "plan" ? "on" : ""} onClick={() => changeView("plan")}><CalendarDays size={20} /><span>{copy.shell.shortPlan}</span></button><button className={mobileNav || ["accounts", "calendar", "recurring", "automation", "goals", "crypto", "analytics", "settings"].includes(view) ? "on" : ""} onClick={() => setMobileNav((current) => !current)}><Menu size={20} /><span>{copy.shell.more}</span></button></nav>}
-    {mobileNav && createPortal(<div className="tm-menu-layer" role="presentation"><button className="tm-menu-scrim" onClick={() => setMobileNav(false)} aria-label="Close navigation" /><div className="tc-mobile-menu tm-menu-sheet" role="dialog" aria-label="More navigation">{localizedNav.map(([id, label, Icon]) => <button key={id} className={view === id ? "on" : ""} onClick={() => { changeView(id); setMobileNav(false); }}><Icon size={17} /> {label}{lockedView(id) ? " · Plus" : ""}</button>)}<button className={view === "settings" ? "on" : ""} onClick={() => { setView("settings"); setMobileNav(false); }}><Settings size={17} /> {copy.shell.settings}</button></div></div>, document.body)}
+    {mobileNav && <MobileMoreScreen user={user} locale={locale} localizedNav={localizedNav} view={view} profileName={profileName} avatarUrl={avatarUrl} plan={plan} lockedView={lockedView} copy={copy.shell} onSelect={(id) => { changeView(id); setMobileNav(false); }} onPlans={() => { setModal("pricing"); setMobileNav(false); }} onSettings={() => { setView("settings"); setMobileNav(false); }} onSignOut={onSignOut} onClose={() => setMobileNav(false)} />}
     {modal === "entry" && <EntryModal initial={editing ? { ...editing, amount: String(editing.amount), tags: editing.tags || [] } : entryDraft} isEditing={Boolean(editing?.id)} month={month} categoryRules={merchantRules} accounts={accounts} copy={copy.entry} locale={locale} onClose={() => { setModal(null); setEntryDraft(null); }} onSave={saveTransaction} onScan={scanReceipt} />}
     {modal === "account" && <AccountModal currency={currency} initial={editingAccount} locale={locale} onClose={() => { setEditingAccount(null); setModal(null); }} onSave={createAccount} />}
     {modal === "transfer" && <TransferModal accounts={accounts} currency={currency} initial={editingTransfer} locale={locale} onClose={() => { setEditingTransfer(null); setModal(null); }} onSave={saveTransfer} />}
