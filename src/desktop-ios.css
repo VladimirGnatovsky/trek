@@ -114,6 +114,19 @@
   .tc-prices article,
   .tn-import-summary > div,
   .tn-restore-counts > div { border-radius: 16px; }
+  .tn-automation-presets article > .tn-preset-added {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border-color: #2d684f;
+    background: #183b2f;
+    color: #36d9a0;
+    opacity: 1;
+  }
 
   .tc-choice,
   .tcrypto-periods {

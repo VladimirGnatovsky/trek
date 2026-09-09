@@ -1,6 +1,6 @@
 /* Screen-by-screen native polish layered over the shared responsive layout. */
 @media (max-width: 760px) {
-  body.trek-native .tc-native .tc-main { padding-inline: 16px; background: #111416; }
+  body.trek-native .tc-native .tc-main { padding: 10px 16px calc(136px + env(safe-area-inset-bottom)); background: #111416; }
   body.trek-native .tc-native .tc-top { position: relative; top: auto; }
   body.trek-native .tc-page { margin-top: 24px; }
   body.trek-native .tc-page-head { gap: 16px; margin-bottom: 22px; }
@@ -22,6 +22,7 @@
   body.trek-native .tc-panel { padding: 19px 17px; }
   body.trek-native .tc-panel h3 { font-size: 23px; }
   body.trek-native .tc-kpis > div { min-height: 112px; padding: 17px; }
+  body.trek-native .tc-kpis > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
   body.trek-native .tc-kpis b { margin: 9px 0 6px; font-size: 22px; }
 
   body.trek-native .tc-signal-icon,
@@ -75,11 +76,42 @@
   body.trek-native .tn-automation-presets small,
   body.trek-native .tn-automation-list small { font-size: 12px; line-height: 1.35; }
   body.trek-native .tn-recurring-list time { border-radius: 12px; background: #18372d; }
+  body.trek-native .tn-recurring-list article {
+    grid-template-columns: 48px 42px minmax(0,1fr) auto;
+    column-gap: 10px;
+  }
+  body.trek-native .tn-recurring-list article > div { min-width: 0; }
 
   body.trek-native .tn-calendar-list { gap: 12px; }
+  body.trek-native .tn-calendar-list > section { grid-template-columns: 78px minmax(0,1fr); }
+  body.trek-native .tn-calendar-list > section > header { padding-inline: 12px; }
+  body.trek-native .tn-calendar-list article { grid-template-columns: 44px minmax(0,1fr) auto; column-gap: 10px; }
+  body.trek-native .tn-calendar-list article > div { min-width: 0; padding-left: 0; }
   body.trek-native .tn-calendar-list article { min-height: 54px; padding-block: 8px; }
   body.trek-native .tn-calendar-list article b { font-size: 14px; }
-  body.trek-native .tn-automation-presets article { min-height: 76px; border-radius: 18px; background: #2a2e31; }
+  body.trek-native .tn-automation-presets article {
+    min-height: 76px;
+    grid-template-columns: 48px minmax(0,1fr) auto;
+    gap: 12px;
+    border-radius: 18px;
+    background: #2a2e31;
+  }
+  body.trek-native .tn-automation-presets article > div { min-width: 0; }
+  body.trek-native .tn-automation-presets article > button { grid-column: 3; min-width: 92px; }
+  body.trek-native .tn-automation-presets article > .tn-preset-added {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border-color: #2d684f;
+    background: #183b2f;
+    color: #36d9a0;
+    opacity: 1;
+  }
   body.trek-native .tn-rule-switch i { width: 49px; height: 29px; }
   body.trek-native .tn-rule-switch i::after { width: 23px; height: 23px; }
   body.trek-native .tn-rule-switch input:checked + i::after { transform: translateX(20px); }
